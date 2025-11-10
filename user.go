@@ -17,11 +17,6 @@ type responseTmp struct {
 	Success bool        `json:"success"`
 }
 
-type chanData struct {
-	Success bool `json:"success"`
-	Data    any  `json:"data"`
-}
-
 type IUser interface {
 }
 
@@ -36,7 +31,7 @@ type user struct {
 	conn *websocket.Conn
 }
 
-func (u *user) send(res *requestTmp) error {
+func (u *user) send(res *request) error {
 	resByte, err := u.server.config.Codec.Marshal(res)
 	if err != nil {
 		return err
@@ -56,7 +51,7 @@ func (u *user) RequestAsync(route string, data any, handler func(IContext, any))
 		<-time.After(u.server.config.Timeout)
 		u.server.deleteResponse(id)
 	}()
-	err := u.send(&requestTmp{
+	err := u.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
@@ -80,7 +75,7 @@ func (u *user) Request(route string, data any, handler func(IContext, any), time
 		<-time.After(u.server.config.Timeout)
 		u.server.deleteResponse(id)
 	}()
-	err := u.send(&requestTmp{
+	err := u.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
@@ -104,7 +99,7 @@ func (u *user) Request(route string, data any, handler func(IContext, any), time
 }
 
 func (u *user) Push(route string, data any) error {
-	err := u.send(&requestTmp{
+	err := u.send(&request{
 		ID:    uuid.New().String(),
 		Route: route,
 		Type:  requestTypePush,

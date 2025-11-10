@@ -1,11 +1,11 @@
-package feng
+package client
 
 import (
 	"errors"
 	"reflect"
 )
 
-func call(f any, c IContext, data any) (any, error) {
+func call(f any, ctx IContext, data any) (any, error) {
 	// 验证参数合法性
 	fv := reflect.ValueOf(f)
 	ft := reflect.TypeOf(f)
@@ -19,7 +19,7 @@ func call(f any, c IContext, data any) (any, error) {
 		return nil, errors.New("first arg must be IContext")
 	}
 
-	dataBytes, err := c.GetServer().GetConfig().Codec.Marshal(data)
+	dataBytes, err := ctx.GetClient().GetConfig().Codec.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func call(f any, c IContext, data any) (any, error) {
 	case reflect.Struct:
 		// 接收结构体参数
 		argPtr := reflect.New(argType)
-		err = c.GetServer().GetConfig().Codec.Unmarshal(dataBytes, argPtr.Interface())
+		err = ctx.GetClient().GetConfig().Codec.Unmarshal(dataBytes, argPtr.Interface())
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func call(f any, c IContext, data any) (any, error) {
 		return nil, errors.New("unsupported arg type")
 	}
 	// 调用
-	rets := fv.Call([]reflect.Value{reflect.ValueOf(c), argValue})
+	rets := fv.Call([]reflect.Value{reflect.ValueOf(ctx), argValue})
 	// 有返回值，处理返回值
 	if len(rets) > 0 {
 		// 处理err类型

@@ -1,7 +1,6 @@
 package feng
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -20,7 +19,7 @@ const (
 	requestTypeSystem
 )
 
-type requestTmp struct {
+type request struct {
 	Route   string      `json:"route"`
 	ID      string      `json:"id"`
 	Type    requestType `json:"type"`
@@ -34,7 +33,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func getMain(server *server) func(c *gin.Context) {
+func handle(s *server) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -44,10 +43,9 @@ func getMain(server *server) func(c *gin.Context) {
 		defer conn.Close()
 
 		// 创建上下文
-		ctx := newContext()
 		u := &user{
 			id:     uuid.New().String(),
-			server: server,
+			server: s,
 			conn:   conn,
 		}
 		r := &room{
@@ -55,9 +53,7 @@ func getMain(server *server) func(c *gin.Context) {
 			users: map[string]IUser{u.id: u},
 		}
 		u.room = r
-		ctx.Set("user", u)
-		ctx.Set("room", r)
-		ctx.Set("server", server)
+		ctx := newContext(r, u, s)
 
 		// 主消息循环
 	MAINFOR:
@@ -70,8 +66,8 @@ func getMain(server *server) func(c *gin.Context) {
 				continue
 			}
 			// 解析请求
-			var req requestTmp
-			err = server.config.Codec.Unmarshal(msg, &req)
+			var req request
+			err = s.config.Codec.Unmarshal(msg, &req)
 			if err != nil {
 				continue
 			}
@@ -80,7 +76,7 @@ func getMain(server *server) func(c *gin.Context) {
 				continue
 			}
 			if req.Type == requestTypeRequestBack {
-				resp, ok := server.getResponse(req.ID)
+				resp, ok := s.getResponse(req.ID)
 				if !ok {
 					continue
 				}
@@ -95,7 +91,7 @@ func getMain(server *server) func(c *gin.Context) {
 				if err != nil {
 					resp.ch <- chanData{
 						Success: false,
-						Data:    err,
+						Data:    err.Error(),
 					}
 					continue
 				}
@@ -111,62 +107,62 @@ func getMain(server *server) func(c *gin.Context) {
 				resType = requestTypePushBack
 			}
 			// 中间件处理
-			server.middlewaresLock.Lock()
-			for _, middleware := range server.middlewares {
+			s.middlewaresLock.Lock()
+			for _, middleware := range s.middlewares {
 				if !strings.HasPrefix(req.Route, middleware.route) {
 					continue
 				}
 				_, err = call(middleware.fn, ctx, req.Data)
 				if err != nil {
-					server.config.Logger.Error("call middleware func failed", "err", err)
-					err = u.send(&requestTmp{
+					s.config.Logger.Error("call middleware func failed", "err", err)
+					err = u.send(&request{
 						ID:      req.ID,
 						Type:    resType,
-						Data:    err,
+						Data:    err.Error(),
 						Success: false,
 					})
 					if err != nil {
-						server.config.Logger.Error("send middleware error failed", "err", err)
+						s.config.Logger.Error("send middleware error failed", "err", err)
 					}
 					continue MAINFOR
 				}
 			}
-			server.middlewaresLock.Unlock()
+			s.middlewaresLock.Unlock()
 			// 路由处理
-			fn, ok := server.getRoute(req.Route)
+			fn, ok := s.getRoute(req.Route)
 			if !ok {
-				err = u.send(&requestTmp{
+				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    errors.New("route not found"),
+					Data:    "route not found",
 					Success: false,
 				})
 				if err != nil {
-					server.config.Logger.Error("send route not found failed", "err", err)
+					s.config.Logger.Error("send route not found failed", "err", err)
 				}
 				continue
 			}
 			data, err := call(fn, ctx, req.Data)
 			if err != nil {
-				err = u.send(&requestTmp{
+				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    err,
+					Data:    err.Error(),
 					Success: false,
 				})
 				if err != nil {
-					server.config.Logger.Error("send route error failed", "err", err)
+					s.config.Logger.Error("send route error failed", "err", err)
 				}
 				continue
 			}
-			err = u.send(&requestTmp{
+			err = u.send(&request{
 				ID:      req.ID,
 				Type:    resType,
 				Data:    data,
 				Success: true,
 			})
 			if err != nil {
-				server.config.Logger.Error("send route success failed", "err", err)
+				s.config.Logger.Error("send route success failed", "err", err)
 			}
 		}
 	}

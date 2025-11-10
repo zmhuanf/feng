@@ -18,35 +18,30 @@ type IContext interface {
 }
 
 type fContext struct {
-	data sync.Map
+	data   sync.Map
+	room   IRoom
+	user   IUser
+	server IServer
 }
 
-func newContext() IContext {
-	return &fContext{}
+func newContext(room IRoom, user IUser, server IServer) IContext {
+	return &fContext{
+		room:   room,
+		user:   user,
+		server: server,
+	}
 }
 
 func (f *fContext) GetRoom() IRoom {
-	room, ok := f.data.Load("room")
-	if !ok {
-		panic("room not set")
-	}
-	return room.(IRoom)
+	return f.room
 }
 
 func (f *fContext) GetUser() IUser {
-	user, ok := f.data.Load("user")
-	if !ok {
-		panic("user not set")
-	}
-	return user.(IUser)
+	return f.user
 }
 
 func (f *fContext) GetServer() IServer {
-	server, ok := f.data.Load("server")
-	if !ok {
-		panic("server not set")
-	}
-	return server.(IServer)
+	return f.server
 }
 
 func (f *fContext) Get(key string) (any, bool) {

@@ -1,8 +1,10 @@
 package feng
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -13,17 +15,7 @@ type IServer interface {
 
 	Start() error
 	Stop() error
-	AddHandler(string, any)
-}
-
-type response struct {
-	fn func(IContext, any)
-	ch chan chanData
-}
-
-type middleware struct {
-	route string
-	fn    func(IContext, any) error
+	AddHandler(string, any) error
 }
 
 type server struct {
@@ -51,6 +43,21 @@ type server struct {
 	roomsLock sync.RWMutex
 }
 
+type middleware struct {
+	route string
+	fn    func(IContext, any) error
+}
+
+type response struct {
+	fn func(IContext, any)
+	ch chan chanData
+}
+
+type chanData struct {
+	Success bool `json:"success"`
+	Data    any  `json:"data"`
+}
+
 func NewServer(config *serverConfig) IServer {
 	return &server{
 		config:      config,
@@ -69,7 +76,7 @@ func (s *server) GetConfig() *serverConfig {
 func (s *server) Start() error {
 	r := gin.Default()
 
-	r.GET("/", getMain(s))
+	r.GET("/", handle(s))
 
 	ser := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.config.Addr, s.config.Port),
@@ -93,10 +100,23 @@ func (s *server) Stop() error {
 	return nil
 }
 
-func (s *server) AddHandler(route string, handler any) {
+func (s *server) AddHandler(route string, fn any) error {
 	s.routeLock.Lock()
 	defer s.routeLock.Unlock()
-	s.route[route] = handler
+	// 检查函数签名
+	ft := reflect.TypeOf(fn)
+	if ft.Kind() != reflect.Func {
+		return errors.New("f must be func")
+	}
+	if ft.NumIn() != 2 {
+		return errors.New("func must have 2 args")
+	}
+	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
+		return errors.New("first arg must be IContext")
+	}
+	// 保存
+	s.route[route] = fn
+	return nil
 }
 
 func (s *server) AddMiddleware(name string, fn func(IContext, any) error) {
