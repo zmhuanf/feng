@@ -51,11 +51,15 @@ func (u *user) RequestAsync(route string, data any, handler func(IContext, any))
 		<-time.After(u.server.config.Timeout)
 		u.server.deleteResponse(id)
 	}()
-	err := u.send(&request{
+	dataBytes, err := u.server.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = u.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	if err != nil {
 		return err
@@ -75,11 +79,15 @@ func (u *user) Request(route string, data any, handler func(IContext, any), time
 		<-time.After(u.server.config.Timeout)
 		u.server.deleteResponse(id)
 	}()
-	err := u.send(&request{
+	dataBytes, err := u.server.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = u.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	if err != nil {
 		return err
@@ -99,11 +107,15 @@ func (u *user) Request(route string, data any, handler func(IContext, any), time
 }
 
 func (u *user) Push(route string, data any) error {
-	err := u.send(&request{
+	dataBytes, err := u.server.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = u.send(&request{
 		ID:    uuid.New().String(),
 		Route: route,
 		Type:  requestTypePush,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	return err
 }

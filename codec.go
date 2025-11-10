@@ -1,6 +1,9 @@
 package feng
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 type ICodec interface {
 	Marshal(v any) ([]byte, error)
@@ -11,6 +14,18 @@ type jsonCodec struct {
 }
 
 func (j *jsonCodec) Marshal(v any) ([]byte, error) {
+	switch val := v.(type) {
+	case nil:
+		return []byte("null"), nil
+	case []byte:
+		return val, nil
+	case string:
+		return []byte(val), nil
+	case json.RawMessage:
+		return val, nil
+	case *bytes.Buffer:
+		return val.Bytes(), nil
+	}
 	return json.Marshal(v)
 }
 

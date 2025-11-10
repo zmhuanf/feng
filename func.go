@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-func call(f any, c IContext, data any) (any, error) {
+func call(f any, c IContext, data []byte) ([]byte, error) {
 	// 验证参数合法性
 	fv := reflect.ValueOf(f)
 	ft := reflect.TypeOf(f)
@@ -19,11 +19,6 @@ func call(f any, c IContext, data any) (any, error) {
 		return nil, errors.New("first arg must be IContext")
 	}
 
-	dataBytes, err := c.GetServer().GetConfig().Codec.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
 	// 根据参数类型解析参数
 	argType := reflect.TypeOf(f).In(1)
 	var argValue reflect.Value
@@ -31,14 +26,14 @@ func call(f any, c IContext, data any) (any, error) {
 	case reflect.Struct:
 		// 接收结构体参数
 		argPtr := reflect.New(argType)
-		err = c.GetServer().GetConfig().Codec.Unmarshal(dataBytes, argPtr.Interface())
+		err := c.GetServer().GetConfig().Codec.Unmarshal(data, argPtr.Interface())
 		if err != nil {
 			return nil, err
 		}
 		argValue = argPtr.Elem()
 	case reflect.String:
 		// 接受字符串参数
-		argValue = reflect.ValueOf(string(dataBytes))
+		argValue = reflect.ValueOf(string(data))
 	case reflect.Slice:
 		// 接受字节数组参数
 		if argType.Elem().Kind() != reflect.Uint8 {
@@ -59,7 +54,12 @@ func call(f any, c IContext, data any) (any, error) {
 			}
 			return nil, nil
 		}
-		return rets[0].Interface(), nil
+		result := rets[0].Interface()
+		resultBytes, err := c.GetServer().GetConfig().Codec.Marshal(result)
+		if err != nil {
+			return nil, err
+		}
+		return resultBytes, nil
 	}
 	return nil, nil
 }

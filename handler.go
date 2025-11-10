@@ -23,7 +23,7 @@ type request struct {
 	Route   string      `json:"route"`
 	ID      string      `json:"id"`
 	Type    requestType `json:"type"`
-	Data    any         `json:"data"`
+	Data    []byte      `json:"data"`
 	Success bool        `json:"success"`
 }
 
@@ -118,7 +118,7 @@ func handle(s *server) func(c *gin.Context) {
 					err = u.send(&request{
 						ID:      req.ID,
 						Type:    resType,
-						Data:    err.Error(),
+						Data:    []byte(err.Error()),
 						Success: false,
 					})
 					if err != nil {
@@ -134,7 +134,7 @@ func handle(s *server) func(c *gin.Context) {
 				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    "route not found",
+					Data:    []byte("route not found"),
 					Success: false,
 				})
 				if err != nil {
@@ -147,7 +147,7 @@ func handle(s *server) func(c *gin.Context) {
 				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    err.Error(),
+					Data:    []byte(err.Error()),
 					Success: false,
 				})
 				if err != nil {

@@ -168,11 +168,15 @@ func (c *client) Connect() error {
 }
 
 func (c *client) Push(route string, data any) error {
-	err := c.send(&request{
+	dataBytes, err := c.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = c.send(&request{
 		ID:    uuid.New().String(),
 		Route: route,
 		Type:  requestTypePush,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	return err
 }
@@ -189,11 +193,15 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 		<-time.After(c.config.Timeout)
 		c.deleteResponse(id)
 	}()
-	err := c.send(&request{
+	dataBytes, err := c.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = c.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	if err != nil {
 		return err
@@ -213,11 +221,15 @@ func (c *client) Request(route string, data any, handler any, timeout time.Durat
 		<-time.After(c.config.Timeout)
 		c.deleteResponse(id)
 	}()
-	err := c.send(&request{
+	dataBytes, err := c.config.Codec.Marshal(data)
+	if err != nil {
+		return err
+	}
+	err = c.send(&request{
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  data,
+		Data:  dataBytes,
 	})
 	if err != nil {
 		return err
