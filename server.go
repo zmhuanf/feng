@@ -49,7 +49,7 @@ type middleware struct {
 }
 
 type response struct {
-	fn func(IContext, any)
+	fn any
 	ch chan chanData
 }
 

@@ -9,15 +9,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type responseTmp struct {
-	ID      string      `json:"id"`
-	Route   string      `json:"route"`
-	Type    requestType `json:"type"`
-	Data    any         `json:"data"`
-	Success bool        `json:"success"`
-}
-
 type IUser interface {
+	Push(string, any) error
+	Request(string, any, any, time.Duration) error
+	RequestAsync(string, any, any) error
 }
 
 type user struct {
@@ -39,11 +34,11 @@ func (u *user) send(res *request) error {
 	return u.conn.WriteMessage(websocket.TextMessage, resByte)
 }
 
-func (u *user) RequestAsync(route string, data any, handler func(IContext, any)) error {
+func (u *user) RequestAsync(route string, data any, fn any) error {
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	u.server.addResponse(id, &response{
-		fn: handler,
+		fn: fn,
 		ch: ch,
 	})
 	// 配置一个额外的删除，防止内存泄漏
@@ -68,11 +63,11 @@ func (u *user) RequestAsync(route string, data any, handler func(IContext, any))
 	return nil
 }
 
-func (u *user) Request(route string, data any, handler func(IContext, any), timeout time.Duration) error {
+func (u *user) Request(route string, data any, fn any, timeout time.Duration) error {
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	u.server.addResponse(id, &response{
-		fn: handler,
+		fn: fn,
 		ch: ch,
 	})
 	// 配置一个额外的删除，防止内存泄漏
