@@ -27,6 +27,12 @@ type request struct {
 func handle(c *client) {
 MAINFOR:
 	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+		}
+
 		msgType, msg, err := c.conn.ReadMessage()
 		if err != nil {
 			break

@@ -49,6 +49,7 @@ func (u *user) RequestAsync(route string, data any, handler func(IContext, any))
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(u.server.config.Timeout)
+		close(ch)
 		u.server.deleteResponse(id)
 	}()
 	dataBytes, err := u.server.config.Codec.Marshal(data)
@@ -77,6 +78,7 @@ func (u *user) Request(route string, data any, handler func(IContext, any), time
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(u.server.config.Timeout)
+		close(ch)
 		u.server.deleteResponse(id)
 	}()
 	dataBytes, err := u.server.config.Codec.Marshal(data)

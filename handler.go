@@ -80,6 +80,10 @@ func handle(s *server) func(c *gin.Context) {
 				if !ok {
 					continue
 				}
+				// 删除响应防止内存泄漏
+				close(resp.ch)
+				s.deleteResponse(req.ID)
+				// 处理响应
 				if !req.Success {
 					resp.ch <- chanData{
 						Success: false,

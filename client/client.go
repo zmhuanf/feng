@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -26,6 +27,8 @@ type IClient interface {
 	Request(string, any, any, time.Duration) error
 	// 获取配置
 	GetConfig() *Config
+	// 关闭连接
+	Close() error
 }
 
 type client struct {
@@ -45,6 +48,11 @@ type client struct {
 	responses map[string]*response
 	// 响应锁
 	responsesLock sync.RWMutex
+	// 关闭控制
+	ctx        context.Context
+	cancel     context.CancelFunc
+	closed     bool
+	closedLock sync.RWMutex
 }
 
 type middleware struct {
@@ -63,15 +71,22 @@ type chanData struct {
 }
 
 func NewClient(config *Config) IClient {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &client{
 		config:      config,
 		route:       make(map[string]any),
 		middlewares: make([]*middleware, 0),
 		responses:   make(map[string]*response),
+		ctx:         ctx,
+		cancel:      cancel,
+		closed:      false,
 	}
 }
 
 func (c *client) send(res *request) error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	if c.conn == nil {
 		return errors.New("client not connected")
 	}
@@ -150,6 +165,9 @@ func (c *client) deleteResponse(id string) {
 }
 
 func (c *client) Connect() error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	// 协议
 	proto := "ws"
 	if c.config.EnableTLS {
@@ -168,6 +186,9 @@ func (c *client) Connect() error {
 }
 
 func (c *client) Push(route string, data any) error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	dataBytes, err := c.config.Codec.Marshal(data)
 	if err != nil {
 		return err
@@ -182,6 +203,9 @@ func (c *client) Push(route string, data any) error {
 }
 
 func (c *client) RequestAsync(route string, data any, handler any) error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	c.addResponse(id, &response{
@@ -210,6 +234,9 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 }
 
 func (c *client) Request(route string, data any, handler any, timeout time.Duration) error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	c.addResponse(id, &response{
@@ -250,4 +277,43 @@ func (c *client) Request(route string, data any, handler any, timeout time.Durat
 
 func (c *client) GetConfig() *Config {
 	return c.config
+}
+
+func (c *client) Close() error {
+	c.closedLock.Lock()
+	defer c.closedLock.Unlock()
+
+	if c.closed {
+		return nil
+	}
+	c.closed = true
+	// 退出读取协程
+	if c.cancel != nil {
+		c.cancel()
+	}
+	// 关闭WebSocket连接
+	if c.conn != nil {
+		err := c.conn.Close()
+		if err != nil {
+			return err
+		}
+		c.conn = nil
+	}
+	// 清理响应通道，防止内存泄漏
+	c.responsesLock.Lock()
+	for id, resp := range c.responses {
+		if resp.ch != nil {
+			close(resp.ch)
+		}
+		delete(c.responses, id)
+	}
+	c.responsesLock.Unlock()
+
+	return nil
+}
+
+func (c *client) isClosed() bool {
+	c.closedLock.RLock()
+	defer c.closedLock.RUnlock()
+	return c.closed
 }
