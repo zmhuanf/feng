@@ -10,6 +10,10 @@ import (
 )
 
 type IUser interface {
+	GetID() string
+	GetRoom() IRoom
+	SetRoom(room IRoom)
+
 	Push(string, any) error
 	Request(context.Context, string, any, any) error
 	RequestAsync(string, any, any) error
@@ -115,4 +119,16 @@ func (u *user) Push(route string, data any) error {
 		Data:  dataBytes,
 	})
 	return err
+}
+
+func (u *user) GetID() string {
+	return u.id
+}
+
+func (u *user) GetRoom() IRoom {
+	return u.room
+}
+
+func (u *user) SetRoom(r IRoom) {
+	u.room = r.(*room)
 }
