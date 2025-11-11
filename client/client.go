@@ -24,7 +24,7 @@ type IClient interface {
 	// 异步请求
 	RequestAsync(string, any, any) error
 	// 同步请求
-	Request(string, any, any, time.Duration) error
+	Request(context.Context, string, any, any) error
 	// 获取配置
 	GetConfig() *Config
 	// 关闭连接
@@ -233,7 +233,7 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 	return nil
 }
 
-func (c *client) Request(route string, data any, handler any, timeout time.Duration) error {
+func (c *client) Request(ctx context.Context, route string, data any, handler any) error {
 	if c.isClosed() {
 		return errors.New("client is closed")
 	}
@@ -267,11 +267,11 @@ func (c *client) Request(route string, data any, handler any, timeout time.Durat
 			return nil
 		}
 		return fmt.Errorf("%v", data.Data)
-	case <-time.After(timeout):
+	case <-ctx.Done():
 		c.responsesLock.Lock()
 		delete(c.responses, id)
 		c.responsesLock.Unlock()
-		return errors.New("request timeout")
+		return ctx.Err()
 	}
 }
 

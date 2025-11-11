@@ -1,7 +1,7 @@
 package feng
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"time"
 
@@ -11,7 +11,7 @@ import (
 
 type IUser interface {
 	Push(string, any) error
-	Request(string, any, any, time.Duration) error
+	Request(context.Context, string, any, any) error
 	RequestAsync(string, any, any) error
 }
 
@@ -63,7 +63,7 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 	return nil
 }
 
-func (u *user) Request(route string, data any, fn any, timeout time.Duration) error {
+func (u *user) Request(ctx context.Context, route string, data any, fn any) error {
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	u.server.addResponse(id, &response{
@@ -95,11 +95,11 @@ func (u *user) Request(route string, data any, fn any, timeout time.Duration) er
 			return nil
 		}
 		return fmt.Errorf("%v", data.Data)
-	case <-time.After(timeout):
+	case <-ctx.Done():
 		u.server.responsesLock.Lock()
 		delete(u.server.responses, id)
 		u.server.responsesLock.Unlock()
-		return errors.New("request timeout")
+		return ctx.Err()
 	}
 }
 

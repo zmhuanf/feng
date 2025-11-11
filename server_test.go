@@ -54,3 +54,30 @@ func TestServer2(t *testing.T) {
 	}
 	server.Start()
 }
+
+func TestServer3(t *testing.T) {
+	config := NewDefaultServerConfig()
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}
+	handler := slog.NewTextHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	config.Logger = logger
+	server := NewServer(config)
+
+	type A struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+
+	err := server.AddHandler("/test_3", func(ctx IContext, a A) (A, error) {
+		t.Logf("In TestServer3 /test_3: %v", a)
+		a.Age += 100
+		return a, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Start()
+}
