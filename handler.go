@@ -54,6 +54,8 @@ func handle(s *server) func(c *gin.Context) {
 		}
 		u.room = r
 		ctx := newContext(r, u, s)
+		s.addUser(u)
+		s.addRoom(r)
 
 		// 主消息循环
 	MAINFOR:

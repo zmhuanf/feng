@@ -6,10 +6,8 @@ import (
 )
 
 type IRoom interface {
-	// 广播
-	Broadcast(msg any) error
-	// 除了自己以外的广播
-	BroadcastExceptSelf(msg any) error
+	// 获取房间ID
+	GetID() string
 	// 添加用户
 	AddUser(user IUser) error
 	// 删除用户
@@ -34,14 +32,6 @@ func NewRoom(id string) IRoom {
 		id:    id,
 		users: make(map[string]IUser),
 	}
-}
-
-func (r *room) Broadcast(msg any) error {
-	return nil
-}
-
-func (r *room) BroadcastExceptSelf(msg any) error {
-	return nil
 }
 
 func (r *room) AddUser(user IUser) error {
@@ -78,4 +68,8 @@ func (r *room) GetAllUsers() []IUser {
 		users = append(users, user)
 	}
 	return users
+}
+
+func (r *room) GetID() string {
+	return r.id
 }

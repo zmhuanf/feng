@@ -16,6 +16,10 @@ type IServer interface {
 	Start() error
 	Stop() error
 	AddHandler(string, any) error
+	GetRoom(id string) (IRoom, error)
+	GetAllRooms() []IRoom
+	GetUser(id string) (IUser, error)
+	GetAllUsers() []IUser
 }
 
 type server struct {
@@ -152,4 +156,56 @@ func (s *server) getRoute(route string) (any, bool) {
 	defer s.routeLock.RUnlock()
 	handler, ok := s.route[route]
 	return handler, ok
+}
+
+func (s *server) GetRoom(id string) (IRoom, error) {
+	s.roomsLock.RLock()
+	defer s.roomsLock.RUnlock()
+	room, ok := s.rooms[id]
+	if !ok {
+		return nil, fmt.Errorf("room %s not found", id)
+	}
+	return room, nil
+}
+
+func (s *server) GetAllRooms() []IRoom {
+	s.roomsLock.RLock()
+	defer s.roomsLock.RUnlock()
+	rooms := make([]IRoom, 0, len(s.rooms))
+	for _, room := range s.rooms {
+		rooms = append(rooms, room)
+	}
+	return rooms
+}
+
+func (s *server) GetUser(id string) (IUser, error) {
+	s.usersLock.RLock()
+	defer s.usersLock.RUnlock()
+	user, ok := s.users[id]
+	if !ok {
+		return nil, fmt.Errorf("user %s not found", id)
+	}
+	return user, nil
+}
+
+func (s *server) GetAllUsers() []IUser {
+	s.usersLock.RLock()
+	defer s.usersLock.RUnlock()
+	users := make([]IUser, 0, len(s.users))
+	for _, user := range s.users {
+		users = append(users, user)
+	}
+	return users
+}
+
+func (s *server) addRoom(r IRoom) {
+	s.roomsLock.Lock()
+	defer s.roomsLock.Unlock()
+	s.rooms[r.GetID()] = r.(*room)
+}
+
+func (s *server) addUser(u IUser) {
+	s.usersLock.Lock()
+	defer s.usersLock.Unlock()
+	s.users[u.GetID()] = u.(*user)
 }
