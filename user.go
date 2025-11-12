@@ -59,7 +59,7 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (u *user) Push(route string, data any) error {
 		ID:    uuid.New().String(),
 		Route: route,
 		Type:  requestTypePush,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	return err
 }

@@ -197,7 +197,7 @@ func (c *client) Push(route string, data any) error {
 		ID:    uuid.New().String(),
 		Route: route,
 		Type:  requestTypePush,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	return err
 }
@@ -225,7 +225,7 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	if err != nil {
 		return err
@@ -256,7 +256,7 @@ func (c *client) Request(ctx context.Context, route string, data any, handler an
 		ID:    id,
 		Route: route,
 		Type:  requestTypeRequest,
-		Data:  dataBytes,
+		Data:  string(dataBytes),
 	})
 	if err != nil {
 		return err

@@ -20,7 +20,7 @@ type request struct {
 	Route   string      `json:"route"`
 	ID      string      `json:"id"`
 	Type    requestType `json:"type"`
-	Data    []byte      `json:"data"`
+	Data    string      `json:"data"`
 	Success bool        `json:"success"`
 }
 
@@ -94,7 +94,7 @@ MAINFOR:
 				err = c.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    []byte(err.Error()),
+					Data:    err.Error(),
 					Success: false,
 				})
 				if err != nil {
@@ -110,7 +110,7 @@ MAINFOR:
 			err = c.send(&request{
 				ID:      req.ID,
 				Type:    resType,
-				Data:    []byte("route not found"),
+				Data:    "route not found",
 				Success: false,
 			})
 			if err != nil {
@@ -123,7 +123,7 @@ MAINFOR:
 			err = c.send(&request{
 				ID:      req.ID,
 				Type:    resType,
-				Data:    []byte(err.Error()),
+				Data:    err.Error(),
 				Success: false,
 			})
 			if err != nil {

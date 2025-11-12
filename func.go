@@ -5,18 +5,18 @@ import (
 	"reflect"
 )
 
-func call(f any, c IContext, data []byte) ([]byte, error) {
+func call(f any, c IContext, data string) (string, error) {
 	// 验证参数合法性
 	fv := reflect.ValueOf(f)
 	ft := reflect.TypeOf(f)
 	if ft.Kind() != reflect.Func {
-		return nil, errors.New("f must be func")
+		return "", errors.New("f must be func")
 	}
 	if ft.NumIn() != 2 {
-		return nil, errors.New("func must have 2 args")
+		return "", errors.New("func must have 2 args")
 	}
 	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
-		return nil, errors.New("first arg must be IContext")
+		return "", errors.New("first arg must be IContext")
 	}
 
 	// 根据参数类型解析参数
@@ -26,9 +26,9 @@ func call(f any, c IContext, data []byte) ([]byte, error) {
 	case reflect.Struct:
 		// 接收结构体参数
 		argPtr := reflect.New(argType)
-		err := c.GetServer().GetConfig().Codec.Unmarshal(data, argPtr.Interface())
+		err := c.GetServer().GetConfig().Codec.Unmarshal([]byte(data), argPtr.Interface())
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		argValue = argPtr.Elem()
 	case reflect.String:
@@ -37,11 +37,11 @@ func call(f any, c IContext, data []byte) ([]byte, error) {
 	case reflect.Slice:
 		// 接受字节数组参数
 		if argType.Elem().Kind() != reflect.Uint8 {
-			return nil, errors.New("slice arg must be []byte")
+			return "", errors.New("slice arg must be []byte")
 		}
 		argValue = reflect.ValueOf(data)
 	default:
-		return nil, errors.New("unsupported arg type")
+		return "", errors.New("unsupported arg type")
 	}
 	// 调用
 	rets := fv.Call([]reflect.Value{reflect.ValueOf(c), argValue})
@@ -50,16 +50,16 @@ func call(f any, c IContext, data []byte) ([]byte, error) {
 		// 处理err类型
 		if rets[0].Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
 			if !rets[0].IsNil() {
-				return nil, rets[0].Interface().(error)
+				return "", rets[0].Interface().(error)
 			}
-			return nil, nil
+			return "", nil
 		}
 		result := rets[0].Interface()
 		resultBytes, err := c.GetServer().GetConfig().Codec.Marshal(result)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		return resultBytes, nil
+		return string(resultBytes), nil
 	}
-	return nil, nil
+	return "", nil
 }

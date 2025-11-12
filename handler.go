@@ -23,7 +23,7 @@ type request struct {
 	Route   string      `json:"route"`
 	ID      string      `json:"id"`
 	Type    requestType `json:"type"`
-	Data    []byte      `json:"data"`
+	Data    string      `json:"data"`
 	Success bool        `json:"success"`
 }
 
@@ -71,6 +71,7 @@ func handle(s *server) func(c *gin.Context) {
 			var req request
 			err = s.config.Codec.Unmarshal(msg, &req)
 			if err != nil {
+				s.config.Logger.Error("unmarshal request failed", "err", err)
 				continue
 			}
 			// 回复的消息
@@ -124,7 +125,7 @@ func handle(s *server) func(c *gin.Context) {
 					err = u.send(&request{
 						ID:      req.ID,
 						Type:    resType,
-						Data:    []byte(err.Error()),
+						Data:    err.Error(),
 						Success: false,
 					})
 					if err != nil {
@@ -137,10 +138,11 @@ func handle(s *server) func(c *gin.Context) {
 			// 路由处理
 			fn, ok := s.getRoute(req.Route)
 			if !ok {
+				s.config.Logger.Error("route not found", "route", req.Route)
 				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    []byte("route not found"),
+					Data:    "route not found",
 					Success: false,
 				})
 				if err != nil {
@@ -153,7 +155,7 @@ func handle(s *server) func(c *gin.Context) {
 				err = u.send(&request{
 					ID:      req.ID,
 					Type:    resType,
-					Data:    []byte(err.Error()),
+					Data:    err.Error(),
 					Success: false,
 				})
 				if err != nil {
