@@ -76,6 +76,9 @@ func handle(s *server) func(c *gin.Context) {
 			}
 			// 回复的消息
 			if req.Type == requestTypePushBack {
+				if !req.Success {
+					s.config.Logger.Error("push back failed", "id", req.ID, "data", req.Data)
+				}
 				continue
 			}
 			if req.Type == requestTypeRequestBack {
