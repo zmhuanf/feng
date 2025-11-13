@@ -19,17 +19,26 @@ type serverConfig struct {
 	Timeout time.Duration
 	// 加入的网络
 	JoinNetwork string
+	// 网络签名密钥
+	NetworkSignKey string
+	// 心跳上报间隔
+	ReportInterval time.Duration
+	// 超时移除间隔
+	RemoveInterval time.Duration
 }
 
 func NewDefaultServerConfig() *serverConfig {
 	return &serverConfig{
-		Addr:        "0.0.0.0",
-		Port:        22100,
-		Codec:       NewJsonCodec(),
-		Logger:      NewSlogLogger(),
-		CertFile:    "",
-		KeyFile:     "",
-		Timeout:     5 * time.Minute,
-		JoinNetwork: "",
+		Addr:           "0.0.0.0",
+		Port:           22100,
+		Codec:          NewJsonCodec(),
+		Logger:         NewSlogLogger(),
+		CertFile:       "",
+		KeyFile:        "",
+		Timeout:        5 * time.Minute,
+		JoinNetwork:    "",
+		NetworkSignKey: generateRandomKey(64),
+		ReportInterval: time.Minute,
+		RemoveInterval: 10 * time.Second,
 	}
 }

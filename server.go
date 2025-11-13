@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type IServer interface {
@@ -45,6 +47,17 @@ type serverData struct {
 	roomsLock sync.RWMutex
 }
 
+type serverStatus struct {
+	// 地址
+	Addr string `json:"addr"`
+	// 负载
+	Load int `json:"load"`
+	// id
+	ID string `json:"id"`
+	// 上报时间
+	ReportTime time.Time `json:"reportTime"`
+}
+
 type server struct {
 	// 配置
 	config *serverConfig
@@ -52,6 +65,14 @@ type server struct {
 	userData serverData
 	// 系统数据
 	sysData serverData
+	// 服务器状态
+	status serverStatus
+	// 状态锁
+	statusLock sync.RWMutex
+	// 其他服务器状态
+	otherStatus map[string]*serverStatus
+	// 其他服务器状态锁
+	otherStatusLock sync.RWMutex
 }
 
 type middleware struct {
@@ -86,6 +107,13 @@ func NewServer(config *serverConfig) IServer {
 			users:       make(map[string]*user),
 			rooms:       make(map[string]*room),
 		},
+		status: serverStatus{
+			Addr:       config.Addr,
+			Load:       0,
+			ID:         uuid.New().String(),
+			ReportTime: time.Now(),
+		},
+		otherStatus: make(map[string]*serverStatus),
 	}
 }
 
@@ -98,6 +126,8 @@ func (s *server) Start() error {
 
 	r.GET("/game", handle(s, false))
 	r.GET("/system", handle(s, true))
+
+	s.addSystemHandler()
 
 	ser := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.config.Addr, s.config.Port),
@@ -342,4 +372,9 @@ func (s *server) addUser(u IUser, isSys bool) {
 		defer s.userData.usersLock.Unlock()
 		s.userData.users[u.GetID()] = u.(*user)
 	}
+}
+
+func (s *server) addSystemHandler() {
+	s.addHandler("/join", systemJoin, true)
+	s.addHandler("/report_status", systemReportStatus, true)
 }

@@ -53,6 +53,8 @@ type client struct {
 	cancel     context.CancelFunc
 	closed     bool
 	closedLock sync.RWMutex
+	// 系统通信客户端
+	sysClient *client
 }
 
 type middleware struct {
@@ -80,6 +82,15 @@ func NewClient(config *Config) IClient {
 		ctx:         ctx,
 		cancel:      cancel,
 		closed:      false,
+		sysClient: &client{
+			config:      config,
+			route:       make(map[string]any),
+			middlewares: make([]*middleware, 0),
+			responses:   make(map[string]*response),
+			ctx:         ctx,
+			cancel:      cancel,
+			closed:      false,
+		},
 	}
 }
 
