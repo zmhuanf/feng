@@ -28,6 +28,8 @@ type user struct {
 	server *server
 	// 链接
 	conn *websocket.Conn
+	// 是否是系统用户
+	isSys bool
 }
 
 func (u *user) send(res *request) error {
@@ -44,12 +46,12 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 	u.server.addResponse(id, &response{
 		fn: fn,
 		ch: ch,
-	})
+	}, u.isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(u.server.config.Timeout)
 		close(ch)
-		u.server.deleteResponse(id)
+		u.server.deleteResponse(id, u.isSys)
 	}()
 	dataBytes, err := u.server.config.Codec.Marshal(data)
 	if err != nil {
@@ -73,12 +75,12 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 	u.server.addResponse(id, &response{
 		fn: fn,
 		ch: ch,
-	})
+	}, u.isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(u.server.config.Timeout)
 		close(ch)
-		u.server.deleteResponse(id)
+		u.server.deleteResponse(id, u.isSys)
 	}()
 	dataBytes, err := u.server.config.Codec.Marshal(data)
 	if err != nil {
@@ -100,9 +102,15 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 		}
 		return fmt.Errorf("%v", data.Data)
 	case <-ctx.Done():
-		u.server.responsesLock.Lock()
-		delete(u.server.responses, id)
-		u.server.responsesLock.Unlock()
+		mutex := &u.server.userData.responsesLock
+		responses := u.server.userData.responses
+		if u.isSys {
+			mutex = &u.server.sysData.responsesLock
+			responses = u.server.sysData.responses
+		}
+		mutex.Lock()
+		delete(responses, id)
+		mutex.Unlock()
 		return ctx.Err()
 	}
 }

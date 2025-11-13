@@ -81,3 +81,42 @@ func TestServer3(t *testing.T) {
 	}
 	server.Start()
 }
+
+func TestServer4(t *testing.T) {
+	config := NewDefaultServerConfig()
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}
+	handler := slog.NewTextHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	config.Logger = logger
+	server := NewServer(config)
+
+	type A struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+
+	err := server.AddHandler(
+		"/cocos_test",
+		func(ctx IContext, a A) (A, error) {
+			t.Logf("In TestServer4 /cocos_test: %v", a)
+
+			err := ctx.GetUser().Push("/hello", a)
+			if err != nil {
+				t.Fatalf("push failed: %v", err)
+				return a, err
+			}
+
+			a.Age += 100
+			a.Name += "_good"
+
+			return a, nil
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Start()
+}

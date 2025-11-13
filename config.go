@@ -17,18 +17,19 @@ type serverConfig struct {
 	KeyFile string
 	// 全局超时时间
 	Timeout time.Duration
+	// 加入的网络
+	JoinNetwork string
 }
 
 func NewDefaultServerConfig() *serverConfig {
 	return &serverConfig{
-		Addr:     "0.0.0.0",
-		Port:     22100,
-		Codec:    NewJsonCodec(),
-		Logger:   NewSlogLogger(),
-		CertFile: "",
-		KeyFile:  "",
-		Timeout:  5 * time.Minute,
+		Addr:        "0.0.0.0",
+		Port:        22100,
+		Codec:       NewJsonCodec(),
+		Logger:      NewSlogLogger(),
+		CertFile:    "",
+		KeyFile:     "",
+		Timeout:     5 * time.Minute,
+		JoinNetwork: "",
 	}
 }
-
-

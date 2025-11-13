@@ -174,7 +174,7 @@ func (c *client) Connect() error {
 		proto = "wss"
 	}
 	// url
-	url := fmt.Sprintf("%s://%s:%d", proto, c.config.Addr, c.config.Port)
+	url := fmt.Sprintf("%s://%s:%d/%s", proto, c.config.Addr, c.config.Port, c.config.Channel)
 	// 连接
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {

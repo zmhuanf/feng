@@ -1,6 +1,7 @@
 package feng
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -16,7 +17,6 @@ const (
 	requestTypePush
 	requestTypeRequestBack
 	requestTypePushBack
-	requestTypeSystem
 )
 
 type request struct {
@@ -33,7 +33,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func handle(s *server) func(c *gin.Context) {
+func handle(s *server, isSys bool) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
@@ -47,6 +47,7 @@ func handle(s *server) func(c *gin.Context) {
 			id:     uuid.New().String(),
 			server: s,
 			conn:   conn,
+			isSys:  isSys,
 		}
 		r := &room{
 			id:    uuid.New().String(),
@@ -54,14 +55,14 @@ func handle(s *server) func(c *gin.Context) {
 		}
 		u.room = r
 		ctx := newContext(r, u, s)
-		s.addUser(u)
-		s.addRoom(r)
+		s.addUser(u, isSys)
+		s.addRoom(r, isSys)
 
 		// 主消息循环
-	MAINFOR:
 		for {
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
+				s.config.Logger.Error("read message failed", "err", err)
 				break
 			}
 			if msgType != websocket.TextMessage {
@@ -74,107 +75,135 @@ func handle(s *server) func(c *gin.Context) {
 				s.config.Logger.Error("unmarshal request failed", "err", err)
 				continue
 			}
-			// 回复的消息
-			if req.Type == requestTypePushBack {
-				if !req.Success {
-					s.config.Logger.Error("push back failed", "id", req.ID, "data", req.Data)
-				}
-				continue
-			}
-			if req.Type == requestTypeRequestBack {
-				resp, ok := s.getResponse(req.ID)
-				if !ok {
-					continue
-				}
-				// 删除响应防止内存泄漏
-				close(resp.ch)
-				s.deleteResponse(req.ID)
-				// 处理响应
-				if !req.Success {
-					resp.ch <- chanData{
-						Success: false,
-						Data:    req.Data,
-					}
-					continue
-				}
-				_, err = call(resp.fn, ctx, req.Data)
+			switch req.Type {
+			case requestTypePushBack:
+				err := handlePushBack(s, &req)
 				if err != nil {
-					resp.ch <- chanData{
-						Success: false,
-						Data:    err.Error(),
-					}
-					continue
+					s.config.Logger.Error("handle push back failed", "err", err)
 				}
-				resp.ch <- chanData{
-					Success: true,
-				}
-				continue
-			}
-
-			// 请求的消息
-			resType := requestTypeRequestBack
-			if req.Type == requestTypePush {
-				resType = requestTypePushBack
-			}
-			// 中间件处理
-			s.middlewaresLock.Lock()
-			for _, middleware := range s.middlewares {
-				if !strings.HasPrefix(req.Route, middleware.route) {
-					continue
-				}
-				_, err = call(middleware.fn, ctx, req.Data)
+			case requestTypeRequestBack:
+				err := handleRequestBack(ctx, s, &req, isSys)
 				if err != nil {
-					s.config.Logger.Error("call middleware func failed", "err", err)
-					err = u.send(&request{
-						ID:      req.ID,
-						Type:    resType,
-						Data:    err.Error(),
-						Success: false,
-					})
-					if err != nil {
-						s.config.Logger.Error("send middleware error failed", "err", err)
-					}
-					continue MAINFOR
+					s.config.Logger.Error("handle request back failed", "err", err)
 				}
-			}
-			s.middlewaresLock.Unlock()
-			// 路由处理
-			fn, ok := s.getRoute(req.Route)
-			if !ok {
-				s.config.Logger.Error("route not found", "route", req.Route)
-				err = u.send(&request{
-					ID:      req.ID,
-					Type:    resType,
-					Data:    "route not found",
-					Success: false,
-				})
+			case requestTypePush, requestTypeRequest:
+				err := handlePushOrRequest(ctx, s, &req, u, isSys)
 				if err != nil {
-					s.config.Logger.Error("send route not found failed", "err", err)
+					s.config.Logger.Error("handle push or request failed", "err", err)
 				}
-				continue
-			}
-			data, err := call(fn, ctx, req.Data)
-			if err != nil {
-				err = u.send(&request{
-					ID:      req.ID,
-					Type:    resType,
-					Data:    err.Error(),
-					Success: false,
-				})
-				if err != nil {
-					s.config.Logger.Error("send route error failed", "err", err)
-				}
-				continue
-			}
-			err = u.send(&request{
-				ID:      req.ID,
-				Type:    resType,
-				Data:    data,
-				Success: true,
-			})
-			if err != nil {
-				s.config.Logger.Error("send route success failed", "err", err)
+			default:
+				s.config.Logger.Error("unknown request type", "type", req.Type)
 			}
 		}
 	}
+}
+
+func handlePushBack(s *server, req *request) error {
+	if !req.Success {
+		return fmt.Errorf("push back failed, id: %s, data: %s", req.ID, req.Data)
+	}
+	return nil
+}
+
+func handleRequestBack(ctx IContext, s *server, req *request, isSys bool) error {
+	resp, ok := s.getResponse(req.ID, isSys)
+	if !ok {
+		return fmt.Errorf("response not found, id: %s", req.ID)
+	}
+	// 删除响应防止内存泄漏
+	close(resp.ch)
+	s.deleteResponse(req.ID, isSys)
+	// 处理响应
+	if !req.Success {
+		resp.ch <- chanData{
+			Success: false,
+			Data:    req.Data,
+		}
+		return nil
+	}
+	_, err := call(resp.fn, ctx, req.Data)
+	if err != nil {
+		resp.ch <- chanData{
+			Success: false,
+			Data:    err.Error(),
+		}
+		return nil
+	}
+	resp.ch <- chanData{
+		Success: true,
+	}
+	return nil
+}
+
+func handlePushOrRequest(ctx IContext, s *server, req *request, u *user, isSys bool) error {
+	resType := requestTypeRequestBack
+	if req.Type == requestTypePush {
+		resType = requestTypePushBack
+	}
+	// 中间件处理
+	mutex := &s.userData.middlewaresLock
+	middlewares := s.userData.middlewares
+	if isSys {
+		mutex = &s.sysData.middlewaresLock
+		middlewares = s.sysData.middlewares
+	}
+	mutex.Lock()
+	for _, middleware := range middlewares {
+		if !strings.HasPrefix(req.Route, middleware.route) {
+			continue
+		}
+		_, err := call(middleware.fn, ctx, req.Data)
+		if err != nil {
+			s.config.Logger.Error("call middleware func failed", "err", err)
+			err = u.send(&request{
+				ID:      req.ID,
+				Type:    resType,
+				Data:    fmt.Sprintf("middleware error: %s", err.Error()),
+				Success: false,
+			})
+			if err != nil {
+				s.config.Logger.Error("send middleware error failed", "err", err)
+			}
+			return nil
+		}
+	}
+	mutex.Unlock()
+	// 路由处理
+	fn, ok := s.getRoute(req.Route, isSys)
+	if !ok {
+		s.config.Logger.Error("route not found", "route", req.Route)
+		err := u.send(&request{
+			ID:      req.ID,
+			Type:    resType,
+			Data:    "route not found",
+			Success: false,
+		})
+		if err != nil {
+			s.config.Logger.Error("send route not found failed", "err", err)
+		}
+		return nil
+	}
+	data, err := call(fn, ctx, req.Data)
+	if err != nil {
+		err = u.send(&request{
+			ID:      req.ID,
+			Type:    resType,
+			Data:    fmt.Sprintf("route error: %s", err.Error()),
+			Success: false,
+		})
+		if err != nil {
+			s.config.Logger.Error("send route error failed", "err", err)
+		}
+		return nil
+	}
+	err = u.send(&request{
+		ID:      req.ID,
+		Type:    resType,
+		Data:    data,
+		Success: true,
+	})
+	if err != nil {
+		s.config.Logger.Error("send route success failed", "err", err)
+	}
+	return nil
 }

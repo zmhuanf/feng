@@ -19,6 +19,8 @@ type Config struct {
 	Timeout time.Duration
 	// 启用TLS
 	EnableTLS bool
+	// 频道
+	Channel string
 }
 
 func NewDefaultClientConfig() *Config {
@@ -28,5 +30,6 @@ func NewDefaultClientConfig() *Config {
 		Codec:   feng.NewJsonCodec(),
 		Logger:  feng.NewSlogLogger(),
 		Timeout: 5 * time.Minute,
+		Channel: "game",
 	}
 }
