@@ -49,7 +49,7 @@ type serverData struct {
 
 type serverStatus struct {
 	// 地址
-	Addr string `json:"addr"`
+	Url string `json:"url"`
 	// 负载
 	Load int `json:"load"`
 	// id
@@ -108,7 +108,7 @@ func NewServer(config *serverConfig) IServer {
 			rooms:       make(map[string]*room),
 		},
 		status: serverStatus{
-			Addr:       config.Addr,
+			Url:        config.Addr,
 			Load:       0,
 			ID:         uuid.New().String(),
 			ReportTime: time.Now(),
@@ -377,4 +377,5 @@ func (s *server) addUser(u IUser, isSys bool) {
 func (s *server) addSystemHandler() {
 	s.addHandler("/join", systemJoin, true)
 	s.addHandler("/report_status", systemReportStatus, true)
+	s.addHandler("/get_low_load_server_addr", systemGetLowLoadServerAddr, true)
 }

@@ -74,6 +74,18 @@ type chanData struct {
 
 func NewClient(config *Config) IClient {
 	ctx, cancel := context.WithCancel(context.Background())
+	var sysClient *client
+	if config.mode == tModeClient {
+		sysClient = &client{
+			config:      config,
+			route:       make(map[string]any),
+			middlewares: make([]*middleware, 0),
+			responses:   make(map[string]*response),
+			ctx:         ctx,
+			cancel:      cancel,
+			closed:      false,
+		}
+	}
 	return &client{
 		config:      config,
 		route:       make(map[string]any),
@@ -82,15 +94,7 @@ func NewClient(config *Config) IClient {
 		ctx:         ctx,
 		cancel:      cancel,
 		closed:      false,
-		sysClient: &client{
-			config:      config,
-			route:       make(map[string]any),
-			middlewares: make([]*middleware, 0),
-			responses:   make(map[string]*response),
-			ctx:         ctx,
-			cancel:      cancel,
-			closed:      false,
-		},
+		sysClient:   sysClient,
 	}
 }
 
@@ -176,16 +180,74 @@ func (c *client) deleteResponse(id string) {
 }
 
 func (c *client) Connect() error {
+	// 协议
+	addr := fmt.Sprintf("%s:%d", c.config.Addr, c.config.Port)
+	return c.connect(addr, true)
+}
+
+func (c *client) connect(addr string, needNew bool) error {
 	if c.isClosed() {
 		return errors.New("client is closed")
 	}
-	// 协议
 	proto := "ws"
 	if c.config.EnableTLS {
 		proto = "wss"
 	}
-	// url
-	url := fmt.Sprintf("%s://%s:%d/%s", proto, c.config.Addr, c.config.Port, c.config.Channel)
+	// 客户端模式
+	if c.config.mode == tModeClient {
+		// 1.客户端模式应该先连接系统通信，然后获取最低负载服务器地址
+		// 2.如果最低负载地址和当前地址相同，直接连接用户通信
+		// 3.如果不同，再次连接系统通信，并告知自己是转接过来的，服务器将不再给出新的地址
+		// 4.然后进入2的逻辑
+		err := c.connectSys(fmt.Sprintf("%s://%s/system", proto, addr))
+		if err != nil {
+			return err
+		}
+		var serverAddr string
+		err = c.sysClient.Request(
+			context.Background(),
+			"/get_low_load_server_addr",
+			needNew,
+			func(ctx IContext, data string) {
+				serverAddr = data
+			},
+		)
+		if err != nil {
+			return err
+		}
+		// 相同地址
+		if serverAddr == "" {
+			return c.connectUser(fmt.Sprintf("%s://%s/game", proto, addr))
+		}
+		// 不同地址
+		return c.connect(serverAddr, false)
+	}
+	// 服务器模式
+	if c.config.mode == tModeServer {
+		// 1.服务器模式直接连接用户通信就好
+		return c.connectUser(fmt.Sprintf("%s://%s/game", proto, addr))
+	}
+	return nil
+}
+
+func (c *client) connectSys(url string) error {
+	if c.sysClient.isClosed() {
+		return errors.New("sys client is closed")
+	}
+	// 连接
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return err
+	}
+	c.sysClient.conn = conn
+	go handle(c.sysClient)
+	return nil
+}
+
+func (c *client) connectUser(url string) error {
+	if c.isClosed() {
+		return errors.New("client is closed")
+	}
 	// 连接
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {

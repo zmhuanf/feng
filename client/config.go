@@ -6,6 +6,13 @@ import (
 	"github.com/zmhuanf/feng"
 )
 
+type mode int
+
+const (
+	tModeClient mode = iota
+	tModeServer
+)
+
 type Config struct {
 	// 服务器地址
 	Addr string
@@ -19,17 +26,18 @@ type Config struct {
 	Timeout time.Duration
 	// 启用TLS
 	EnableTLS bool
-	// 频道
-	Channel string
+	// 模式
+	mode mode
 }
 
 func NewDefaultClientConfig() *Config {
 	return &Config{
-		Addr:    "127.0.0.1",
-		Port:    22100,
-		Codec:   feng.NewJsonCodec(),
-		Logger:  feng.NewSlogLogger(),
-		Timeout: 5 * time.Minute,
-		Channel: "game",
+		Addr:      "127.0.0.1",
+		Port:      22100,
+		Codec:     feng.NewJsonCodec(),
+		Logger:    feng.NewSlogLogger(),
+		Timeout:   5 * time.Minute,
+		EnableTLS: false,
+		mode:      tModeClient,
 	}
 }

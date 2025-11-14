@@ -9,7 +9,7 @@ import (
 
 type systemJoinReq struct {
 	// 地址
-	Addr string `json:"addr"`
+	Url string `json:"url"`
 	// 签名
 	Sign string `json:"sign"`
 }
@@ -18,14 +18,14 @@ type systemJoinReq struct {
 func systemJoin(ctx IContext, req systemJoinReq) error {
 	server := ctx.GetServer().(*server)
 	// 验证签名
-	if !verify(req.Addr, server.config.NetworkSignKey, req.Sign) {
+	if !verify(req.Url, server.config.NetworkSignKey, req.Sign) {
 		return errors.New("invalid sign")
 	}
 	// 加入其他服务器状态
 	server.otherStatusLock.Lock()
 	defer server.otherStatusLock.Unlock()
 	server.otherStatus[ctx.GetUser().GetID()] = &serverStatus{
-		Addr: req.Addr,
+		Url:  req.Url,
 		Load: 0,
 		ID:   uuid.New().String(),
 	}
@@ -49,4 +49,10 @@ func systemReportStatus(ctx IContext, req systemReportStatusReq) error {
 	status.Load = req.Load
 	status.ReportTime = time.Now()
 	return nil
+}
+
+// 获取低负载服务器地址
+func systemGetLowLoadServerAddr(ctx IContext, _ string) (string, error) {
+	// TODO
+	return "", nil
 }
