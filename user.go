@@ -41,6 +41,11 @@ func (u *user) send(res *request) error {
 }
 
 func (u *user) RequestAsync(route string, data any, fn any) error {
+	// 检查函数签名
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
+	}
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	u.server.addResponse(id, &response{
@@ -70,6 +75,11 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 }
 
 func (u *user) Request(ctx context.Context, route string, data any, fn any) error {
+	// 检查函数签名
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
+	}
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	u.server.addResponse(id, &response{

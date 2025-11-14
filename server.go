@@ -1,10 +1,8 @@
 package feng
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"sync"
 	"time"
 
@@ -157,15 +155,9 @@ func (s *server) AddHandler(route string, fn any) error {
 
 func (s *server) addHandler(route string, fn any, isSys bool) error {
 	// 检查函数签名
-	ft := reflect.TypeOf(fn)
-	if ft.Kind() != reflect.Func {
-		return errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
-		return errors.New("first arg must be IContext")
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
 	}
 	if isSys {
 		s.sysData.routeLock.Lock()
@@ -184,6 +176,11 @@ func (s *server) AddMiddleware(name string, fn func(IContext, any) error) error 
 }
 
 func (s *server) addMiddleware(route string, fn func(IContext, any) error, isSys bool) error {
+	// 检查函数签名
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
+	}
 	if isSys {
 		s.sysData.middlewaresLock.Lock()
 		defer s.sysData.middlewaresLock.Unlock()

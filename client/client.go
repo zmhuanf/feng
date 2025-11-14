@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -113,38 +112,26 @@ func (c *client) send(res *request) error {
 }
 
 func (c *client) AddHandler(route string, fn any) error {
+	// 检查函数签名
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
+	}
 	c.routeLock.Lock()
 	defer c.routeLock.Unlock()
-	// 检查函数签名
-	ft := reflect.TypeOf(fn)
-	if ft.Kind() != reflect.Func {
-		return errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
-		return errors.New("first arg must be IContext")
-	}
 	// 保存
 	c.route[route] = fn
 	return nil
 }
 
 func (c *client) AddMiddleware(route string, fn any) error {
+	// 检查函数签名
+	err := checkFuncType(fn)
+	if err != nil {
+		return err
+	}
 	c.middlewaresLock.Lock()
 	defer c.middlewaresLock.Unlock()
-	// 检查函数签名
-	ft := reflect.TypeOf(fn)
-	if ft.Kind() != reflect.Func {
-		return errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
-		return errors.New("first arg must be IContext")
-	}
 	// 保存
 	c.middlewares = append(c.middlewares, &middleware{
 		route: route,
@@ -276,6 +263,11 @@ func (c *client) Push(route string, data any) error {
 }
 
 func (c *client) RequestAsync(route string, data any, handler any) error {
+	// 检查函数签名
+	err := checkFuncType(handler)
+	if err != nil {
+		return err
+	}
 	if c.isClosed() {
 		return errors.New("client is closed")
 	}
@@ -307,6 +299,11 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 }
 
 func (c *client) Request(ctx context.Context, route string, data any, handler any) error {
+	// 检查函数签名
+	err := checkFuncType(handler)
+	if err != nil {
+		return err
+	}
 	if c.isClosed() {
 		return errors.New("client is closed")
 	}

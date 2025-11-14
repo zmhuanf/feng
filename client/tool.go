@@ -1,4 +1,4 @@
-package feng
+package client
 
 import (
 	"crypto/hmac"

@@ -120,3 +120,37 @@ func TestServer4(t *testing.T) {
 	}
 	server.Start()
 }
+
+func TestServer5(t *testing.T) {
+	config := NewDefaultServerConfig()
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}
+	handler := slog.NewTextHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	config.Logger = logger
+	server := NewServer(config)
+
+	err := server.AddHandler(
+		"/test5",
+		func(ctx IContext, data bool) error {
+			t.Logf("In TestServer5 /test5: %v", data)
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// err = server.AddHandler(
+	// 	"/test5_2",
+	// 	func(ctx IContext, data []byte) error {
+	// 		t.Logf("In TestServer5 /test5_2: %v", data)
+	// 		return nil
+	// 	},
+	// )
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	server.Start()
+}
