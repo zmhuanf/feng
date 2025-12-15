@@ -1,12 +1,13 @@
 package feng
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
 )
 
-func TestServer(t *testing.T) {
+func TestServer1(t *testing.T) {
 	config := NewDefaultServerConfig()
 	opts := &slog.HandlerOptions{
 		AddSource: true,
@@ -18,7 +19,7 @@ func TestServer(t *testing.T) {
 	server := NewServer(config)
 
 	err := server.AddHandler("/test",
-		func(ctx IContext, data string) (string, error) {
+		func(ctx IServerContext, data string) (string, error) {
 			slog.Info("test", "data", data)
 			return data, nil
 		},
@@ -40,7 +41,7 @@ func TestServer2(t *testing.T) {
 	config.Logger = logger
 	server := NewServer(config)
 
-	err := server.AddHandler("/test_1", func(ctx IContext, data string) (string, error) {
+	err := server.AddHandler("/test_1", func(ctx IServerContext, data string) (string, error) {
 		t.Logf("In TestServer2 /test_1: %v", data)
 		err := ctx.GetUser().Push("/res_1", data)
 		if err != nil {
@@ -71,7 +72,7 @@ func TestServer3(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	err := server.AddHandler("/test_3", func(ctx IContext, a A) (A, error) {
+	err := server.AddHandler("/test_3", func(ctx IServerContext, a A) (A, error) {
 		t.Logf("In TestServer3 /test_3: %v", a)
 		a.Age += 100
 		return a, nil
@@ -100,7 +101,7 @@ func TestServer4(t *testing.T) {
 
 	err := server.AddHandler(
 		"/cocos_test",
-		func(ctx IContext, a A) (A, error) {
+		func(ctx IServerContext, a A) (A, error) {
 			t.Logf("In TestServer4 /cocos_test: %v", a)
 
 			err := ctx.GetUser().Push("/hello", a)
@@ -112,7 +113,7 @@ func TestServer4(t *testing.T) {
 			a.Age += 100
 			a.Name += "_good"
 
-			return a, nil
+			return a, errors.New("test error")
 		},
 	)
 	if err != nil {
@@ -134,7 +135,7 @@ func TestServer5(t *testing.T) {
 
 	err := server.AddHandler(
 		"/test5",
-		func(ctx IContext, data bool) error {
+		func(ctx IServerContext, data bool) error {
 			t.Logf("In TestServer5 /test5: %v", data)
 			return nil
 		},

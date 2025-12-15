@@ -42,3 +42,39 @@ func NewDefaultServerConfig() *serverConfig {
 		RemoveInterval: 10 * time.Second,
 	}
 }
+
+type mode int
+
+const (
+	tModeClient mode = iota
+	tModeServer
+)
+
+type clientConfig struct {
+	// 服务器地址
+	Addr string
+	// 服务器端口
+	Port int
+	// 序列化方式
+	Codec ICodec
+	// 日志记录器
+	Logger Logger
+	// 全局超时时间
+	Timeout time.Duration
+	// 启用TLS
+	EnableTLS bool
+	// 模式
+	mode mode
+}
+
+func NewDefaultClientConfig() *clientConfig {
+	return &clientConfig{
+		Addr:      "127.0.0.1",
+		Port:      22100,
+		Codec:     NewJsonCodec(),
+		Logger:    NewSlogLogger(),
+		Timeout:   5 * time.Minute,
+		EnableTLS: false,
+		mode:      tModeClient,
+	}
+}

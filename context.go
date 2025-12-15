@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-type IContext interface {
+type IServerContext interface {
 	// 获取房间
 	GetRoom() IRoom
 	// 获取用户
@@ -17,37 +17,55 @@ type IContext interface {
 	Set(key string, value any)
 }
 
-type fContext struct {
+type fServerContext struct {
 	data   sync.Map
 	room   IRoom
 	user   IUser
 	server IServer
 }
 
-func newContext(room IRoom, user IUser, server IServer) IContext {
-	return &fContext{
+func newServerContext(room IRoom, user IUser, server IServer) IServerContext {
+	return &fServerContext{
 		room:   room,
 		user:   user,
 		server: server,
 	}
 }
 
-func (f *fContext) GetRoom() IRoom {
+func (f *fServerContext) GetRoom() IRoom {
 	return f.room
 }
 
-func (f *fContext) GetUser() IUser {
+func (f *fServerContext) GetUser() IUser {
 	return f.user
 }
 
-func (f *fContext) GetServer() IServer {
+func (f *fServerContext) GetServer() IServer {
 	return f.server
 }
 
-func (f *fContext) Get(key string) (any, bool) {
+func (f *fServerContext) Get(key string) (any, bool) {
 	return f.data.Load(key)
 }
 
-func (f *fContext) Set(key string, value any) {
+func (f *fServerContext) Set(key string, value any) {
 	f.data.Store(key, value)
+}
+
+type IClientContext interface {
+	GetClient() IClient
+}
+
+type fClientContext struct {
+	client IClient
+}
+
+func (c *fClientContext) GetClient() IClient {
+	return c.client
+}
+
+func newClientContext(client IClient) IClientContext {
+	return &fClientContext{
+		client: client,
+	}
 }

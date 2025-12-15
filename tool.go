@@ -30,7 +30,7 @@ func generateRandomKey(length int) string {
 	return hex.EncodeToString(key)
 }
 
-func checkFuncType(fn any) error {
+func checkFuncTypeServer(fn any) error {
 	// 检查函数签名
 	ft := reflect.TypeOf(fn)
 	if ft.Kind() != reflect.Func {
@@ -39,8 +39,34 @@ func checkFuncType(fn any) error {
 	if ft.NumIn() != 2 {
 		return errors.New("func must have 2 args")
 	}
-	if ft.In(0) != reflect.TypeOf((*IContext)(nil)).Elem() {
-		return errors.New("first arg must be IContext")
+	if ft.In(0) != reflect.TypeOf((*IServerContext)(nil)).Elem() {
+		return errors.New("first arg must be IServerContext")
+	}
+	secondArg := ft.In(1)
+	switch secondArg.Kind() {
+	case reflect.Slice:
+		if secondArg.Elem().Kind() != reflect.Uint8 {
+			return errors.New("second arg must be []byte, string or struct")
+		}
+	case reflect.String:
+	case reflect.Struct:
+	default:
+		return errors.New("second arg must be []byte, string or struct")
+	}
+	return nil
+}
+
+func checkFuncTypeClient(fn any) error {
+	// 检查函数签名
+	ft := reflect.TypeOf(fn)
+	if ft.Kind() != reflect.Func {
+		return errors.New("f must be func")
+	}
+	if ft.NumIn() != 2 {
+		return errors.New("func must have 2 args")
+	}
+	if ft.In(0) != reflect.TypeOf((*IClientContext)(nil)).Elem() {
+		return errors.New("first arg must be IClientContext")
 	}
 	secondArg := ft.In(1)
 	switch secondArg.Kind() {

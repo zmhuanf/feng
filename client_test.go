@@ -1,4 +1,4 @@
-package client
+package feng
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestClient(t *testing.T) {
+func TestClient1(t *testing.T) {
 	config := NewDefaultClientConfig()
 	opts := &slog.HandlerOptions{
 		AddSource: true,
@@ -23,7 +23,7 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
-	err = client.Request(context.Background(), "/test", "hello world", func(ctx IContext, data string) {
+	err = client.Request(context.Background(), "/test", "hello world", func(ctx IClientContext, data string) {
 		t.Logf("response: %v", data)
 	})
 	if err != nil {
@@ -46,7 +46,7 @@ func TestClient2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
-	err = client.AddHandler("/res_1", func(ctx IContext, data string) {
+	err = client.AddHandler("/res_1", func(ctx IClientContext, data string) {
 		t.Logf("response: %v", data)
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ func TestClient3(t *testing.T) {
 
 	err = client.Request(context.Background(), "/test_3",
 		A{Name: "feng", Age: 18},
-		func(ctx IContext, a A) {
+		func(ctx IClientContext, a A) {
 			t.Logf("response: %v", a)
 		},
 	)
@@ -112,7 +112,7 @@ func TestClient5(t *testing.T) {
 		context.Background(),
 		"/test5",
 		true,
-		func(ctx IContext, data string) {
+		func(ctx IClientContext, data string) {
 			t.Logf("response: %v", data)
 		},
 	)

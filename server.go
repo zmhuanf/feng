@@ -75,7 +75,7 @@ type server struct {
 
 type middleware struct {
 	route string
-	fn    func(IContext, any) error
+	fn    any
 }
 
 type response struct {
@@ -122,8 +122,8 @@ func (s *server) GetConfig() *serverConfig {
 func (s *server) Start() error {
 	r := gin.Default()
 
-	r.GET("/game", handle(s, false))
-	r.GET("/system", handle(s, true))
+	r.GET("/game", serverHandle(s, false))
+	r.GET("/system", serverHandle(s, true))
 
 	s.addSystemHandler()
 
@@ -155,7 +155,7 @@ func (s *server) AddHandler(route string, fn any) error {
 
 func (s *server) addHandler(route string, fn any, isSys bool) error {
 	// 检查函数签名
-	err := checkFuncType(fn)
+	err := checkFuncTypeServer(fn)
 	if err != nil {
 		return err
 	}
@@ -171,13 +171,13 @@ func (s *server) addHandler(route string, fn any, isSys bool) error {
 	return nil
 }
 
-func (s *server) AddMiddleware(name string, fn func(IContext, any) error) error {
+func (s *server) AddMiddleware(name string, fn func(IServerContext, any) error) error {
 	return s.addMiddleware(name, fn, false)
 }
 
-func (s *server) addMiddleware(route string, fn func(IContext, any) error, isSys bool) error {
+func (s *server) addMiddleware(route string, fn func(IServerContext, any) error, isSys bool) error {
 	// 检查函数签名
-	err := checkFuncType(fn)
+	err := checkFuncTypeServer(fn)
 	if err != nil {
 		return err
 	}

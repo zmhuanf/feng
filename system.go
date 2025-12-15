@@ -15,7 +15,7 @@ type systemJoinReq struct {
 }
 
 // 加入网络
-func systemJoin(ctx IContext, req systemJoinReq) error {
+func systemJoin(ctx IServerContext, req systemJoinReq) error {
 	server := ctx.GetServer().(*server)
 	// 验证签名
 	if !verify(req.Url, server.config.NetworkSignKey, req.Sign) {
@@ -38,7 +38,7 @@ type systemReportStatusReq struct {
 }
 
 // 上报状态
-func systemReportStatus(ctx IContext, req systemReportStatusReq) error {
+func systemReportStatus(ctx IServerContext, req systemReportStatusReq) error {
 	server := ctx.GetServer().(*server)
 	// 验证
 	status, ok := server.otherStatus[ctx.GetUser().GetID()]
@@ -52,7 +52,7 @@ func systemReportStatus(ctx IContext, req systemReportStatusReq) error {
 }
 
 // 获取低负载服务器地址
-func systemGetLowLoadServerAddr(ctx IContext, _ string) (string, error) {
+func systemGetLowLoadServerAddr(ctx IServerContext, _ string) (string, error) {
 	// TODO
 	return "", nil
 }

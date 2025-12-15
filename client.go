@@ -1,4 +1,4 @@
-package client
+package feng
 
 import (
 	"context"
@@ -25,14 +25,14 @@ type IClient interface {
 	// 同步请求
 	Request(context.Context, string, any, any) error
 	// 获取配置
-	GetConfig() *Config
+	GetConfig() *clientConfig
 	// 关闭连接
 	Close() error
 }
 
 type client struct {
 	// 配置
-	config *Config
+	config *clientConfig
 	// 连接
 	conn *websocket.Conn
 	// 路由
@@ -56,22 +56,7 @@ type client struct {
 	sysClient *client
 }
 
-type middleware struct {
-	route string
-	fn    any
-}
-
-type response struct {
-	fn any
-	ch chan chanData
-}
-
-type chanData struct {
-	Success bool
-	Data    any
-}
-
-func NewClient(config *Config) IClient {
+func NewClient(config *clientConfig) IClient {
 	ctx, cancel := context.WithCancel(context.Background())
 	var sysClient *client
 	if config.mode == tModeClient {
@@ -113,7 +98,7 @@ func (c *client) send(res *request) error {
 
 func (c *client) AddHandler(route string, fn any) error {
 	// 检查函数签名
-	err := checkFuncType(fn)
+	err := checkFuncTypeClient(fn)
 	if err != nil {
 		return err
 	}
@@ -126,7 +111,7 @@ func (c *client) AddHandler(route string, fn any) error {
 
 func (c *client) AddMiddleware(route string, fn any) error {
 	// 检查函数签名
-	err := checkFuncType(fn)
+	err := checkFuncTypeClient(fn)
 	if err != nil {
 		return err
 	}
@@ -195,7 +180,7 @@ func (c *client) connect(addr string, needNew bool) error {
 			context.Background(),
 			"/get_low_load_server_addr",
 			needNew,
-			func(ctx IContext, data string) {
+			func(ctx IClientContext, data string) {
 				serverAddr = data
 			},
 		)
@@ -227,7 +212,7 @@ func (c *client) connectSys(url string) error {
 		return err
 	}
 	c.sysClient.conn = conn
-	go handle(c.sysClient)
+	go clientHandle(c.sysClient)
 	return nil
 }
 
@@ -241,7 +226,7 @@ func (c *client) connectUser(url string) error {
 		return err
 	}
 	c.conn = conn
-	go handle(c)
+	go clientHandle(c)
 	return nil
 }
 
@@ -264,7 +249,7 @@ func (c *client) Push(route string, data any) error {
 
 func (c *client) RequestAsync(route string, data any, handler any) error {
 	// 检查函数签名
-	err := checkFuncType(handler)
+	err := checkFuncTypeClient(handler)
 	if err != nil {
 		return err
 	}
@@ -300,7 +285,7 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 
 func (c *client) Request(ctx context.Context, route string, data any, handler any) error {
 	// 检查函数签名
-	err := checkFuncType(handler)
+	err := checkFuncTypeClient(handler)
 	if err != nil {
 		return err
 	}
@@ -345,7 +330,7 @@ func (c *client) Request(ctx context.Context, route string, data any, handler an
 	}
 }
 
-func (c *client) GetConfig() *Config {
+func (c *client) GetConfig() *clientConfig {
 	return c.config
 }
 
