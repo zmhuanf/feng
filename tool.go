@@ -39,7 +39,7 @@ func checkFuncTypeServer(fn any) error {
 	if ft.NumIn() != 2 {
 		return errors.New("func must have 2 args")
 	}
-	if ft.In(0) != reflect.TypeOf((*IServerContext)(nil)).Elem() {
+	if ft.In(0) != reflect.TypeFor[IServerContext]() {
 		return errors.New("first arg must be IServerContext")
 	}
 	secondArg := ft.In(1)
@@ -65,7 +65,7 @@ func checkFuncTypeClient(fn any) error {
 	if ft.NumIn() != 2 {
 		return errors.New("func must have 2 args")
 	}
-	if ft.In(0) != reflect.TypeOf((*IClientContext)(nil)).Elem() {
+	if ft.In(0) != reflect.TypeFor[IClientContext]() {
 		return errors.New("first arg must be IClientContext")
 	}
 	secondArg := ft.In(1)

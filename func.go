@@ -15,7 +15,7 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 	if ft.NumIn() != 2 {
 		return "", errors.New("func must have 2 args")
 	}
-	if ft.In(0) != reflect.TypeOf((*IServerContext)(nil)).Elem() {
+	if ft.In(0) != reflect.TypeFor[IServerContext]() {
 		return "", errors.New("first arg must be IServerContext")
 	}
 
@@ -48,7 +48,7 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 	// 有返回值，处理返回值
 	if len(rets) > 0 {
 		// 处理err类型
-		if rets[0].Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
 			if !rets[0].IsNil() {
 				return "", rets[0].Interface().(error)
 			}
@@ -74,7 +74,7 @@ func callClient(f any, ctx IClientContext, data string) (string, error) {
 	if ft.NumIn() != 2 {
 		return "", errors.New("func must have 2 args")
 	}
-	if ft.In(0) != reflect.TypeOf((*IClientContext)(nil)).Elem() {
+	if ft.In(0) != reflect.TypeFor[IClientContext]() {
 		return "", errors.New("first arg must be IClientContext")
 	}
 
@@ -107,7 +107,7 @@ func callClient(f any, ctx IClientContext, data string) (string, error) {
 	// 有返回值，处理返回值
 	if len(rets) > 0 {
 		// 处理err类型
-		if rets[0].Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
 			if !rets[0].IsNil() {
 				return "", rets[0].Interface().(error)
 			}
