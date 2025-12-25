@@ -46,8 +46,9 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 	// 调用
 	rets := fv.Call([]reflect.Value{reflect.ValueOf(c), argValue})
 	// 有返回值，处理返回值
-	if len(rets) > 0 {
-		// 处理err类型
+	switch len(rets) {
+	case 1:
+		// 只有一个返回值，可能是error或者结果
 		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
 			if !rets[0].IsNil() {
 				return "", rets[0].Interface().(error)
@@ -60,8 +61,20 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 			return "", err
 		}
 		return string(resultBytes), nil
+	case 2:
+		// 有两个返回值，第一个是结果，第二个是error
+		if !rets[1].IsNil() {
+			return "", rets[1].Interface().(error)
+		}
+		result := rets[0].Interface()
+		resultBytes, err := c.GetServer().GetConfig().Codec.Marshal(result)
+		if err != nil {
+			return "", err
+		}
+		return string(resultBytes), nil
+	default:
+		return "", errors.New("unsupported return values")
 	}
-	return "", nil
 }
 
 func callClient(f any, ctx IClientContext, data string) (string, error) {
@@ -105,8 +118,9 @@ func callClient(f any, ctx IClientContext, data string) (string, error) {
 	// 调用
 	rets := fv.Call([]reflect.Value{reflect.ValueOf(ctx), argValue})
 	// 有返回值，处理返回值
-	if len(rets) > 0 {
-		// 处理err类型
+	switch len(rets) {
+	case 1:
+		// 只有一个返回值，可能是error或者结果
 		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
 			if !rets[0].IsNil() {
 				return "", rets[0].Interface().(error)
@@ -119,6 +133,18 @@ func callClient(f any, ctx IClientContext, data string) (string, error) {
 			return "", err
 		}
 		return string(resultBytes), nil
+	case 2:
+		// 有两个返回值，第一个是结果，第二个是error
+		if !rets[1].IsNil() {
+			return "", rets[1].Interface().(error)
+		}
+		result := rets[0].Interface()
+		resultBytes, err := ctx.GetClient().GetConfig().Codec.Marshal(result)
+		if err != nil {
+			return "", err
+		}
+		return string(resultBytes), nil
+	default:
+		return "", errors.New("unsupported return values")
 	}
-	return "", nil
 }

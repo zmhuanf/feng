@@ -21,7 +21,7 @@ func TestServer1(t *testing.T) {
 	err := server.AddHandler("/test",
 		func(ctx IServerContext, data string) (string, error) {
 			slog.Info("test", "data", data)
-			return data, nil
+			return data, errors.New("这是一个测试错误")
 		},
 	)
 	if err != nil {
