@@ -42,7 +42,7 @@ func (u *user) send(res *request) error {
 
 func (u *user) RequestAsync(route string, data any, fn any) error {
 	// 检查函数签名
-	err := checkFuncTypeServer(fn)
+	err := checkFuncType(fn, true)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 
 func (u *user) Request(ctx context.Context, route string, data any, fn any) error {
 	// 检查函数签名
-	err := checkFuncTypeServer(fn)
+	err := checkFuncType(fn, true)
 	if err != nil {
 		return err
 	}

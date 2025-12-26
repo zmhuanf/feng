@@ -30,54 +30,34 @@ func generateRandomKey(length int) string {
 	return hex.EncodeToString(key)
 }
 
-func checkFuncTypeServer(fn any) error {
+func checkFuncType(fn any, isServer bool) error {
 	// 检查函数签名
 	ft := reflect.TypeOf(fn)
 	if ft.Kind() != reflect.Func {
 		return errors.New("f must be func")
 	}
-	if ft.NumIn() != 2 {
-		return errors.New("func must have 2 args")
+	if ft.NumIn() != 1 && ft.NumIn() != 2 {
+		return errors.New("func must have 1 or 2 args")
 	}
-	if ft.In(0) != reflect.TypeFor[IServerContext]() {
-		return errors.New("first arg must be IServerContext")
+	contextType := reflect.TypeFor[IServerContext]()
+	if !isServer {
+		contextType = reflect.TypeFor[IClientContext]()
 	}
-	secondArg := ft.In(1)
-	switch secondArg.Kind() {
-	case reflect.Slice:
-		if secondArg.Elem().Kind() != reflect.Uint8 {
+	if ft.In(0) != contextType {
+		return errors.New("first arg must be " + contextType.String())
+	}
+	if ft.NumIn() == 2 {
+		secondArg := ft.In(1)
+		switch secondArg.Kind() {
+		case reflect.Slice:
+			if secondArg.Elem().Kind() != reflect.Uint8 {
+				return errors.New("second arg must be []byte, string or struct")
+			}
+		case reflect.String:
+		case reflect.Struct:
+		default:
 			return errors.New("second arg must be []byte, string or struct")
 		}
-	case reflect.String:
-	case reflect.Struct:
-	default:
-		return errors.New("second arg must be []byte, string or struct")
-	}
-	return nil
-}
-
-func checkFuncTypeClient(fn any) error {
-	// 检查函数签名
-	ft := reflect.TypeOf(fn)
-	if ft.Kind() != reflect.Func {
-		return errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeFor[IClientContext]() {
-		return errors.New("first arg must be IClientContext")
-	}
-	secondArg := ft.In(1)
-	switch secondArg.Kind() {
-	case reflect.Slice:
-		if secondArg.Elem().Kind() != reflect.Uint8 {
-			return errors.New("second arg must be []byte, string or struct")
-		}
-	case reflect.String:
-	case reflect.Struct:
-	default:
-		return errors.New("second arg must be []byte, string or struct")
 	}
 	return nil
 }

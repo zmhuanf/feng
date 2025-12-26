@@ -16,7 +16,7 @@ type IServer interface {
 	Start() error
 	Stop() error
 	AddHandler(string, any) error
-	AddMiddleware(string, func(IServerContext, any) error) error
+	AddMiddleware(string, any) error
 	GetRoom(id string) (IRoom, error)
 	GetAllRooms() []IRoom
 	GetUser(id string) (IUser, error)
@@ -156,100 +156,103 @@ func (s *server) AddHandler(route string, fn any) error {
 
 func (s *server) addHandler(route string, fn any, isSys bool) error {
 	// 检查函数签名
-	err := checkFuncTypeServer(fn)
+	err := checkFuncType(fn, true)
 	if err != nil {
 		return err
 	}
+
+	lock := &s.userData.routeLock
+	routeMap := s.userData.route
 	if isSys {
-		s.sysData.routeLock.Lock()
-		defer s.sysData.routeLock.Unlock()
-		s.sysData.route[route] = fn
-	} else {
-		s.userData.routeLock.Lock()
-		defer s.userData.routeLock.Unlock()
-		s.userData.route[route] = fn
+		lock = &s.sysData.routeLock
+		routeMap = s.sysData.route
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	routeMap[route] = fn
 	return nil
 }
 
-func (s *server) AddMiddleware(name string, fn func(IServerContext, any) error) error {
+func (s *server) AddMiddleware(name string, fn any) error {
 	return s.addMiddleware(name, fn, false)
 }
 
-func (s *server) addMiddleware(route string, fn func(IServerContext, any) error, isSys bool) error {
+func (s *server) addMiddleware(route string, fn any, isSys bool) error {
 	// 检查函数签名
-	err := checkFuncTypeServer(fn)
+	err := checkFuncType(fn, true)
 	if err != nil {
 		return err
 	}
+
+	lock := &s.userData.middlewaresLock
+	middlewares := &s.userData.middlewares
 	if isSys {
-		s.sysData.middlewaresLock.Lock()
-		defer s.sysData.middlewaresLock.Unlock()
-		s.sysData.middlewares = append(s.sysData.middlewares, &middleware{
-			route: route,
-			fn:    fn,
-		})
-	} else {
-		s.userData.middlewaresLock.Lock()
-		defer s.userData.middlewaresLock.Unlock()
-		s.userData.middlewares = append(s.userData.middlewares, &middleware{
-			route: route,
-			fn:    fn,
-		})
+		lock = &s.sysData.middlewaresLock
+		middlewares = &s.sysData.middlewares
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	*middlewares = append(*middlewares, &middleware{
+		route: route,
+		fn:    fn,
+	})
 	return nil
 }
 
 func (s *server) getResponse(id string, isSys bool) (*response, bool) {
+	lock := &s.userData.responsesLock
+	responses := s.userData.responses
 	if isSys {
-		s.sysData.responsesLock.RLock()
-		defer s.sysData.responsesLock.RUnlock()
-		res, ok := s.sysData.responses[id]
-		return res, ok
-	} else {
-		s.userData.responsesLock.RLock()
-		defer s.userData.responsesLock.RUnlock()
-		res, ok := s.userData.responses[id]
-		return res, ok
+		lock = &s.sysData.responsesLock
+		responses = s.sysData.responses
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	res, ok := responses[id]
+	return res, ok
 }
 
 func (s *server) deleteResponse(id string, isSys bool) {
+	lock := &s.userData.responsesLock
+	responses := s.userData.responses
 	if isSys {
-		s.sysData.responsesLock.Lock()
-		defer s.sysData.responsesLock.Unlock()
-		delete(s.sysData.responses, id)
-	} else {
-		s.userData.responsesLock.Lock()
-		defer s.userData.responsesLock.Unlock()
-		delete(s.userData.responses, id)
+		lock = &s.sysData.responsesLock
+		responses = s.sysData.responses
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	delete(responses, id)
 }
 
 func (s *server) addResponse(id string, res *response, isSys bool) {
+	lock := &s.userData.responsesLock
+	responses := s.userData.responses
 	if isSys {
-		s.sysData.responsesLock.Lock()
-		defer s.sysData.responsesLock.Unlock()
-		s.sysData.responses[id] = res
-	} else {
-		s.userData.responsesLock.Lock()
-		defer s.userData.responsesLock.Unlock()
-		s.userData.responses[id] = res
+		lock = &s.sysData.responsesLock
+		responses = s.sysData.responses
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	responses[id] = res
 }
 
 func (s *server) getRoute(route string, isSys bool) (any, bool) {
+	lock := &s.userData.routeLock
+	routeMap := s.userData.route
 	if isSys {
-		s.sysData.routeLock.RLock()
-		defer s.sysData.routeLock.RUnlock()
-		handler, ok := s.sysData.route[route]
-		return handler, ok
-	} else {
-		s.userData.routeLock.RLock()
-		defer s.userData.routeLock.RUnlock()
-		handler, ok := s.userData.route[route]
-		return handler, ok
+		lock = &s.sysData.routeLock
+		routeMap = s.sysData.route
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	handler, ok := routeMap[route]
+	return handler, ok
 }
 
 func (s *server) GetRoom(id string) (IRoom, error) {
@@ -257,23 +260,20 @@ func (s *server) GetRoom(id string) (IRoom, error) {
 }
 
 func (s *server) getRoom(id string, isSys bool) (IRoom, error) {
+	lock := &s.userData.roomsLock
+	rooms := s.userData.rooms
 	if isSys {
-		s.sysData.roomsLock.RLock()
-		defer s.sysData.roomsLock.RUnlock()
-		room, ok := s.sysData.rooms[id]
-		if !ok {
-			return nil, fmt.Errorf("room %s not found", id)
-		}
-		return room, nil
-	} else {
-		s.userData.roomsLock.RLock()
-		defer s.userData.roomsLock.RUnlock()
-		room, ok := s.userData.rooms[id]
-		if !ok {
-			return nil, fmt.Errorf("room %s not found", id)
-		}
-		return room, nil
+		lock = &s.sysData.roomsLock
+		rooms = s.sysData.rooms
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	room, ok := rooms[id]
+	if !ok {
+		return nil, fmt.Errorf("room %s not found", id)
+	}
+	return room, nil
 }
 
 func (s *server) GetAllRooms() []IRoom {
@@ -281,23 +281,20 @@ func (s *server) GetAllRooms() []IRoom {
 }
 
 func (s *server) getAllRooms(isSys bool) []IRoom {
+	lock := &s.userData.roomsLock
+	roomsMap := s.userData.rooms
 	if isSys {
-		s.sysData.roomsLock.RLock()
-		defer s.sysData.roomsLock.RUnlock()
-		rooms := make([]IRoom, 0, len(s.sysData.rooms))
-		for _, room := range s.sysData.rooms {
-			rooms = append(rooms, room)
-		}
-		return rooms
-	} else {
-		s.userData.roomsLock.RLock()
-		defer s.userData.roomsLock.RUnlock()
-		rooms := make([]IRoom, 0, len(s.userData.rooms))
-		for _, room := range s.userData.rooms {
-			rooms = append(rooms, room)
-		}
-		return rooms
+		lock = &s.sysData.roomsLock
+		roomsMap = s.sysData.rooms
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	rooms := make([]IRoom, 0, len(roomsMap))
+	for _, room := range roomsMap {
+		rooms = append(rooms, room)
+	}
+	return rooms
 }
 
 func (s *server) GetUser(id string) (IUser, error) {
@@ -305,23 +302,20 @@ func (s *server) GetUser(id string) (IUser, error) {
 }
 
 func (s *server) getUser(id string, isSys bool) (IUser, error) {
+	lock := &s.userData.usersLock
+	users := s.userData.users
 	if isSys {
-		s.sysData.usersLock.RLock()
-		defer s.sysData.usersLock.RUnlock()
-		user, ok := s.sysData.users[id]
-		if !ok {
-			return nil, fmt.Errorf("user %s not found", id)
-		}
-		return user, nil
-	} else {
-		s.userData.usersLock.RLock()
-		defer s.userData.usersLock.RUnlock()
-		user, ok := s.userData.users[id]
-		if !ok {
-			return nil, fmt.Errorf("user %s not found", id)
-		}
-		return user, nil
+		lock = &s.sysData.usersLock
+		users = s.sysData.users
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	user, ok := users[id]
+	if !ok {
+		return nil, fmt.Errorf("user %s not found", id)
+	}
+	return user, nil
 }
 
 func (s *server) GetAllUsers() []IUser {
@@ -329,47 +323,46 @@ func (s *server) GetAllUsers() []IUser {
 }
 
 func (s *server) getAllUsers(isSys bool) []IUser {
+	lock := &s.userData.usersLock
+	usersMap := s.userData.users
 	if isSys {
-		s.sysData.usersLock.RLock()
-		defer s.sysData.usersLock.RUnlock()
-		users := make([]IUser, 0, len(s.sysData.users))
-		for _, user := range s.sysData.users {
-			users = append(users, user)
-		}
-		return users
-	} else {
-		s.userData.usersLock.RLock()
-		defer s.userData.usersLock.RUnlock()
-		users := make([]IUser, 0, len(s.userData.users))
-		for _, user := range s.userData.users {
-			users = append(users, user)
-		}
-		return users
+		lock = &s.sysData.usersLock
+		usersMap = s.sysData.users
 	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	users := make([]IUser, 0, len(usersMap))
+	for _, user := range usersMap {
+		users = append(users, user)
+	}
+	return users
 }
 
 func (s *server) addRoom(r IRoom, isSys bool) {
+	lock := &s.userData.roomsLock
+	rooms := s.userData.rooms
 	if isSys {
-		s.sysData.roomsLock.Lock()
-		defer s.sysData.roomsLock.Unlock()
-		s.sysData.rooms[r.GetID()] = r.(*room)
-	} else {
-		s.userData.roomsLock.Lock()
-		defer s.userData.roomsLock.Unlock()
-		s.userData.rooms[r.GetID()] = r.(*room)
+		lock = &s.sysData.roomsLock
+		rooms = s.sysData.rooms
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	rooms[r.GetID()] = r.(*room)
 }
 
 func (s *server) addUser(u IUser, isSys bool) {
+	lock := &s.userData.usersLock
+	users := s.userData.users
 	if isSys {
-		s.sysData.usersLock.Lock()
-		defer s.sysData.usersLock.Unlock()
-		s.sysData.users[u.GetID()] = u.(*user)
-	} else {
-		s.userData.usersLock.Lock()
-		defer s.userData.usersLock.Unlock()
-		s.userData.users[u.GetID()] = u.(*user)
+		lock = &s.sysData.usersLock
+		users = s.sysData.users
 	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	users[u.GetID()] = u.(*user)
 }
 
 func (s *server) addSystemHandler() {

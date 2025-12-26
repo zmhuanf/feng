@@ -98,7 +98,7 @@ func (c *client) send(res *request) error {
 
 func (c *client) AddHandler(route string, fn any) error {
 	// 检查函数签名
-	err := checkFuncTypeClient(fn)
+	err := checkFuncType(fn, false)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (c *client) AddHandler(route string, fn any) error {
 
 func (c *client) AddMiddleware(route string, fn any) error {
 	// 检查函数签名
-	err := checkFuncTypeClient(fn)
+	err := checkFuncType(fn, false)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (c *client) Push(route string, data any) error {
 
 func (c *client) RequestAsync(route string, data any, handler any) error {
 	// 检查函数签名
-	err := checkFuncTypeClient(handler)
+	err := checkFuncType(handler, false)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 
 func (c *client) Request(ctx context.Context, route string, data any, handler any) error {
 	// 检查函数签名
-	err := checkFuncTypeClient(handler)
+	err := checkFuncType(handler, false)
 	if err != nil {
 		return err
 	}
