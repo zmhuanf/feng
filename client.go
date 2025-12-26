@@ -82,7 +82,7 @@ func NewClient(config *clientConfig) IClient {
 	}
 }
 
-func (c *client) send(res *request) error {
+func (c *client) send(res *message) error {
 	if c.isClosed() {
 		return errors.New("client is closed")
 	}
@@ -238,10 +238,10 @@ func (c *client) Push(route string, data any) error {
 	if err != nil {
 		return err
 	}
-	err = c.send(&request{
+	err = c.send(&message{
 		ID:    uuid.New().String(),
 		Route: route,
-		Type:  requestTypePush,
+		Type:  messageTypePush,
 		Data:  string(dataBytes),
 	})
 	return err
@@ -271,10 +271,10 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 	if err != nil {
 		return err
 	}
-	err = c.send(&request{
+	err = c.send(&message{
 		ID:    id,
 		Route: route,
-		Type:  requestTypeRequest,
+		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
 	})
 	if err != nil {
@@ -307,10 +307,10 @@ func (c *client) Request(ctx context.Context, route string, data any, handler an
 	if err != nil {
 		return err
 	}
-	err = c.send(&request{
+	err = c.send(&message{
 		ID:    id,
 		Route: route,
-		Type:  requestTypeRequest,
+		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
 	})
 	if err != nil {

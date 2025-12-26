@@ -32,7 +32,7 @@ type user struct {
 	isSys bool
 }
 
-func (u *user) send(res *request) error {
+func (u *user) send(res *message) error {
 	resByte, err := u.server.config.Codec.Marshal(res)
 	if err != nil {
 		return err
@@ -62,10 +62,10 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 	if err != nil {
 		return err
 	}
-	err = u.send(&request{
+	err = u.send(&message{
 		ID:    id,
 		Route: route,
-		Type:  requestTypeRequest,
+		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
 	})
 	if err != nil {
@@ -96,10 +96,10 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 	if err != nil {
 		return err
 	}
-	err = u.send(&request{
+	err = u.send(&message{
 		ID:    id,
 		Route: route,
-		Type:  requestTypeRequest,
+		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
 	})
 	if err != nil {
@@ -130,10 +130,10 @@ func (u *user) Push(route string, data any) error {
 	if err != nil {
 		return err
 	}
-	err = u.send(&request{
+	err = u.send(&message{
 		ID:    uuid.New().String(),
 		Route: route,
-		Type:  requestTypePush,
+		Type:  messageTypePush,
 		Data:  string(dataBytes),
 	})
 	return err

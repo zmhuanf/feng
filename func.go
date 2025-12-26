@@ -5,46 +5,50 @@ import (
 	"reflect"
 )
 
-func callServer(f any, c IServerContext, data string) (string, error) {
-	// 验证参数合法性
+func call(f any, c any, data string) (string, error) {
 	fv := reflect.ValueOf(f)
 	ft := reflect.TypeOf(f)
-	if ft.Kind() != reflect.Func {
-		return "", errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return "", errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeFor[IServerContext]() {
-		return "", errors.New("first arg must be IServerContext")
+
+	var codec ICodec
+	switch ctx := c.(type) {
+	case IServerContext:
+		codec = ctx.GetServer().GetConfig().Codec
+	case IClientContext:
+		codec = ctx.GetClient().GetConfig().Codec
+	default:
+		return "", errors.New("invalid context type")
 	}
 
-	// 根据参数类型解析参数
-	argType := reflect.TypeOf(f).In(1)
-	var argValue reflect.Value
-	switch argType.Kind() {
-	case reflect.Struct:
-		// 接收结构体参数
-		argPtr := reflect.New(argType)
-		err := c.GetServer().GetConfig().Codec.Unmarshal([]byte(data), argPtr.Interface())
-		if err != nil {
-			return "", err
+	// 参数
+	params := []reflect.Value{reflect.ValueOf(c)}
+	if ft.NumIn() > 1 {
+		argType := reflect.TypeOf(f).In(1)
+		var argValue reflect.Value
+		switch argType.Kind() {
+		case reflect.Struct:
+			// 接收结构体参数
+			argPtr := reflect.New(argType)
+			err := codec.Unmarshal([]byte(data), argPtr.Interface())
+			if err != nil {
+				return "", err
+			}
+			argValue = argPtr.Elem()
+		case reflect.String:
+			// 接受字符串参数
+			argValue = reflect.ValueOf(string(data))
+		case reflect.Slice:
+			// 接受字节数组参数
+			if argType.Elem().Kind() != reflect.Uint8 {
+				return "", errors.New("slice arg must be []byte")
+			}
+			argValue = reflect.ValueOf(data)
+		default:
+			return "", errors.New("unsupported arg type")
 		}
-		argValue = argPtr.Elem()
-	case reflect.String:
-		// 接受字符串参数
-		argValue = reflect.ValueOf(string(data))
-	case reflect.Slice:
-		// 接受字节数组参数
-		if argType.Elem().Kind() != reflect.Uint8 {
-			return "", errors.New("slice arg must be []byte")
-		}
-		argValue = reflect.ValueOf(data)
-	default:
-		return "", errors.New("unsupported arg type")
+		params = append(params, argValue)
 	}
 	// 调用
-	rets := fv.Call([]reflect.Value{reflect.ValueOf(c), argValue})
+	rets := fv.Call(params)
 	// 有返回值，处理返回值
 	switch len(rets) {
 	case 1:
@@ -56,7 +60,7 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 			return "", nil
 		}
 		result := rets[0].Interface()
-		resultBytes, err := c.GetServer().GetConfig().Codec.Marshal(result)
+		resultBytes, err := codec.Marshal(result)
 		if err != nil {
 			return "", err
 		}
@@ -67,79 +71,7 @@ func callServer(f any, c IServerContext, data string) (string, error) {
 			return "", rets[1].Interface().(error)
 		}
 		result := rets[0].Interface()
-		resultBytes, err := c.GetServer().GetConfig().Codec.Marshal(result)
-		if err != nil {
-			return "", err
-		}
-		return string(resultBytes), nil
-	default:
-		return "", errors.New("unsupported return values")
-	}
-}
-
-func callClient(f any, ctx IClientContext, data string) (string, error) {
-	// 验证参数合法性
-	fv := reflect.ValueOf(f)
-	ft := reflect.TypeOf(f)
-	if ft.Kind() != reflect.Func {
-		return "", errors.New("f must be func")
-	}
-	if ft.NumIn() != 2 {
-		return "", errors.New("func must have 2 args")
-	}
-	if ft.In(0) != reflect.TypeFor[IClientContext]() {
-		return "", errors.New("first arg must be IClientContext")
-	}
-
-	// 根据参数类型解析参数
-	argType := reflect.TypeOf(f).In(1)
-	var argValue reflect.Value
-	switch argType.Kind() {
-	case reflect.Struct:
-		// 接收结构体参数
-		argPtr := reflect.New(argType)
-		err := ctx.GetClient().GetConfig().Codec.Unmarshal([]byte(data), argPtr.Interface())
-		if err != nil {
-			return "", err
-		}
-		argValue = argPtr.Elem()
-	case reflect.String:
-		// 接受字符串参数
-		argValue = reflect.ValueOf(string(data))
-	case reflect.Slice:
-		// 接受字节数组参数
-		if argType.Elem().Kind() != reflect.Uint8 {
-			return "", errors.New("slice arg must be []byte")
-		}
-		argValue = reflect.ValueOf(data)
-	default:
-		return "", errors.New("unsupported arg type")
-	}
-	// 调用
-	rets := fv.Call([]reflect.Value{reflect.ValueOf(ctx), argValue})
-	// 有返回值，处理返回值
-	switch len(rets) {
-	case 1:
-		// 只有一个返回值，可能是error或者结果
-		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
-			if !rets[0].IsNil() {
-				return "", rets[0].Interface().(error)
-			}
-			return "", nil
-		}
-		result := rets[0].Interface()
-		resultBytes, err := ctx.GetClient().GetConfig().Codec.Marshal(result)
-		if err != nil {
-			return "", err
-		}
-		return string(resultBytes), nil
-	case 2:
-		// 有两个返回值，第一个是结果，第二个是error
-		if !rets[1].IsNil() {
-			return "", rets[1].Interface().(error)
-		}
-		result := rets[0].Interface()
-		resultBytes, err := ctx.GetClient().GetConfig().Codec.Marshal(result)
+		resultBytes, err := codec.Marshal(result)
 		if err != nil {
 			return "", err
 		}
