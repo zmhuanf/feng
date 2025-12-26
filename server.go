@@ -16,6 +16,7 @@ type IServer interface {
 	Start() error
 	Stop() error
 	AddHandler(string, any) error
+	AddMiddleware(string, func(IServerContext, any) error) error
 	GetRoom(id string) (IRoom, error)
 	GetAllRooms() []IRoom
 	GetUser(id string) (IUser, error)

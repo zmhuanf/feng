@@ -1,7 +1,6 @@
 package feng
 
 import (
-	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -21,7 +20,7 @@ func TestServer1(t *testing.T) {
 	err := server.AddHandler("/test",
 		func(ctx IServerContext, data string) (string, error) {
 			slog.Info("test", "data", data)
-			return data, errors.New("这是一个测试错误")
+			return data, nil
 		},
 	)
 	if err != nil {
@@ -113,7 +112,7 @@ func TestServer4(t *testing.T) {
 			a.Age += 100
 			a.Name += "_good"
 
-			return a, errors.New("test error")
+			return a, nil
 		},
 	)
 	if err != nil {
