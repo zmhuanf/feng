@@ -18,6 +18,8 @@ type IRoom interface {
 	GetUser(id string) (IUser, error)
 	// 获取所有用户
 	GetAllUsers() []IUser
+	// 获取用户数量
+	GetUserCount() int
 }
 
 type room struct {
@@ -52,7 +54,6 @@ func (r *room) AddUser(user IUser) error {
 	if oldRoom != nil {
 		oldRoom.RemoveUser(user)
 	}
-	user.SetRoom(r)
 	return nil
 }
 
@@ -88,4 +89,10 @@ func (r *room) GetAllUsers() []IUser {
 
 func (r *room) GetID() string {
 	return r.id
+}
+
+func (r *room) GetUserCount() int {
+	r.lock.RLock()
+	defer r.lock.RUnlock()
+	return len(r.users)
 }

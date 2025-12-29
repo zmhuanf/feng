@@ -12,10 +12,9 @@ import (
 type IUser interface {
 	GetID() string
 	GetRoom() IRoom
-	SetRoom(room IRoom)
-	GetContext() IServerContext
-	SetContext(ctx IServerContext)
+	JoinRoom(IRoom)
 	CreateAndJoinRoom() error
+	GetContext() IServerContext
 
 	Push(string, any) error
 	Request(context.Context, string, any, any) error
@@ -165,16 +164,13 @@ func (u *user) GetRoom() IRoom {
 	return u.room
 }
 
-func (u *user) SetRoom(r IRoom) {
+func (u *user) JoinRoom(r IRoom) {
+	r.AddUser(u)
 	u.room = r.(*room)
 }
 
 func (u *user) GetContext() IServerContext {
 	return u.ctx
-}
-
-func (u *user) SetContext(ctx IServerContext) {
-	u.ctx = ctx
 }
 
 func (u *user) CreateAndJoinRoom() error {
@@ -183,5 +179,6 @@ func (u *user) CreateAndJoinRoom() error {
 	if err != nil {
 		return err
 	}
+	u.room = newRoom
 	return nil
 }
