@@ -27,138 +27,194 @@ type IClient interface {
 	// 获取配置
 	GetConfig() *clientConfig
 	// 关闭连接
-	Close() error
+	Close()
 }
 
 type client struct {
 	// 配置
 	config *clientConfig
 	// 连接
-	conn *websocket.Conn
+	conn    *websocket.Conn
+	connSys *websocket.Conn
 	// 路由
-	route map[string]any
+	route    map[string]any
+	routeSys map[string]any
 	// 路由锁
-	routeLock sync.RWMutex
+	routeLock    sync.RWMutex
+	routeSysLock sync.RWMutex
 	// 中间层
-	middlewares []*middleware
+	middlewares    []*middleware
+	middlewaresSys []*middleware
 	// 中间层锁
-	middlewaresLock sync.RWMutex
+	middlewaresLock    sync.RWMutex
+	middlewaresSysLock sync.RWMutex
 	// 响应
-	responses map[string]*response
+	responses    map[string]*response
+	responsesSys map[string]*response
 	// 响应锁
-	responsesLock sync.RWMutex
+	responsesLock    sync.RWMutex
+	responsesSysLock sync.RWMutex
 	// 关闭控制
-	ctx        context.Context
-	cancel     context.CancelFunc
-	closed     bool
-	closedLock sync.RWMutex
-	// 系统通信客户端
-	sysClient *client
+	ctx           context.Context
+	cancel        context.CancelFunc
+	closed        bool
+	closedLock    sync.RWMutex
+	ctxSys        context.Context
+	cancelSys     context.CancelFunc
+	closedSys     bool
+	closedSysLock sync.RWMutex
 }
 
 func NewClient(config *clientConfig) IClient {
-	ctx, cancel := context.WithCancel(context.Background())
-	var sysClient *client
-	if config.mode == tModeClient {
-		sysClient = &client{
-			config:      config,
-			route:       make(map[string]any),
-			middlewares: make([]*middleware, 0),
-			responses:   make(map[string]*response),
-			ctx:         ctx,
-			cancel:      cancel,
-			closed:      false,
-		}
+	if config == nil {
+		config = NewDefaultClientConfig()
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	ctxSys, cancelSys := context.WithCancel(context.Background())
 	return &client{
-		config:      config,
-		route:       make(map[string]any),
-		middlewares: make([]*middleware, 0),
-		responses:   make(map[string]*response),
-		ctx:         ctx,
-		cancel:      cancel,
-		closed:      false,
-		sysClient:   sysClient,
+		config:         config,
+		route:          make(map[string]any),
+		routeSys:       make(map[string]any),
+		middlewares:    make([]*middleware, 0),
+		middlewaresSys: make([]*middleware, 0),
+		responses:      make(map[string]*response),
+		responsesSys:   make(map[string]*response),
+		ctx:            ctx,
+		ctxSys:         ctxSys,
+		cancel:         cancel,
+		cancelSys:      cancelSys,
+		closed:         false,
+		closedSys:      false,
 	}
 }
 
-func (c *client) send(res *message) error {
-	if c.isClosed() {
+func (c *client) send(res *message, isSys bool) error {
+	conn := c.conn
+	if isSys {
+		conn = c.connSys
+	}
+
+	if c.isClosed(isSys) {
 		return errors.New("client is closed")
 	}
-	if c.conn == nil {
+	if conn == nil {
 		return errors.New("client not connected")
 	}
 	resByte, err := c.config.Codec.Marshal(res)
 	if err != nil {
 		return err
 	}
-	return c.conn.WriteMessage(websocket.TextMessage, resByte)
+	return conn.WriteMessage(websocket.TextMessage, resByte)
 }
 
 func (c *client) AddHandler(route string, fn any) error {
+	return c.addHandler(route, fn, false)
+}
+
+func (c *client) addHandler(route string, fn any, isSys bool) error {
 	// 检查函数签名
 	err := checkFuncType(fn, false)
 	if err != nil {
 		return err
 	}
-	c.routeLock.Lock()
-	defer c.routeLock.Unlock()
+
+	lock := &c.routeLock
+	routeMap := c.route
+	if isSys {
+		lock = &c.routeSysLock
+		routeMap = c.routeSys
+	}
+	lock.Lock()
+	defer lock.Unlock()
 	// 保存
-	c.route[route] = fn
+	routeMap[route] = fn
 	return nil
 }
 
 func (c *client) AddMiddleware(route string, fn any) error {
+	return c.addMiddleware(route, fn, false)
+}
+
+func (c *client) addMiddleware(route string, fn any, isSys bool) error {
 	// 检查函数签名
 	err := checkFuncType(fn, false)
 	if err != nil {
 		return err
 	}
-	c.middlewaresLock.Lock()
-	defer c.middlewaresLock.Unlock()
+	lock := &c.middlewaresLock
+	middlewares := &c.middlewares
+	if isSys {
+		lock = &c.middlewaresSysLock
+		middlewares = &c.middlewaresSys
+	}
+	lock.Lock()
+	defer lock.Unlock()
 	// 保存
-	c.middlewares = append(c.middlewares, &middleware{
+	*middlewares = append(*middlewares, &middleware{
 		route: route,
 		fn:    fn,
 	})
 	return nil
 }
 
-func (c *client) getRoute(route string) (any, bool) {
-	c.routeLock.RLock()
-	defer c.routeLock.RUnlock()
-	handler, ok := c.route[route]
+func (c *client) getRoute(route string, isSys bool) (any, bool) {
+	lock := &c.routeLock
+	routeMap := c.route
+	if isSys {
+		lock = &c.routeSysLock
+		routeMap = c.routeSys
+	}
+	lock.RLock()
+	defer lock.RUnlock()
+	handler, ok := routeMap[route]
 	return handler, ok
 }
 
-func (c *client) getResponse(id string) (*response, bool) {
-	c.responsesLock.RLock()
-	defer c.responsesLock.RUnlock()
-	res, ok := c.responses[id]
+func (c *client) getResponse(id string, isSys bool) (*response, bool) {
+	lock := &c.responsesLock
+	responses := c.responses
+	if isSys {
+		lock = &c.responsesSysLock
+		responses = c.responsesSys
+	}
+	lock.RLock()
+	defer lock.RUnlock()
+	res, ok := responses[id]
 	return res, ok
 }
 
-func (c *client) addResponse(id string, resp *response) {
-	c.responsesLock.Lock()
-	defer c.responsesLock.Unlock()
-	c.responses[id] = resp
+func (c *client) addResponse(id string, resp *response, isSys bool) {
+	lock := &c.responsesLock
+	responses := c.responses
+	if isSys {
+		lock = &c.responsesSysLock
+		responses = c.responsesSys
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	responses[id] = resp
 }
 
-func (c *client) deleteResponse(id string) {
-	c.responsesLock.Lock()
-	defer c.responsesLock.Unlock()
-	delete(c.responses, id)
+func (c *client) deleteResponse(id string, isSys bool) {
+	lock := &c.responsesLock
+	responses := c.responses
+	if isSys {
+		lock = &c.responsesSysLock
+		responses = c.responsesSys
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	delete(responses, id)
 }
 
 func (c *client) Connect() error {
 	// 协议
 	addr := fmt.Sprintf("%s:%d", c.config.Addr, c.config.Port)
-	return c.connect(addr, true)
+	return c.connect(addr, !c.GetConfig().DirectConnect)
 }
 
 func (c *client) connect(addr string, needNew bool) error {
-	if c.isClosed() {
+	if c.isClosed(false) || c.isClosed(true) {
 		return errors.New("client is closed")
 	}
 	proto := "ws"
@@ -176,13 +232,14 @@ func (c *client) connect(addr string, needNew bool) error {
 			return err
 		}
 		var serverAddr string
-		err = c.sysClient.Request(
+		err = c.request(
 			context.Background(),
 			"/get_low_load_server_addr",
 			needNew,
 			func(ctx IClientContext, data string) {
 				serverAddr = data
 			},
+			true,
 		)
 		if err != nil {
 			return err
@@ -196,14 +253,13 @@ func (c *client) connect(addr string, needNew bool) error {
 	}
 	// 服务器模式
 	if c.config.mode == tModeServer {
-		// 1.服务器模式直接连接用户通信就好
-		return c.connectUser(fmt.Sprintf("%s://%s/game", proto, addr))
+		return c.connectSys(fmt.Sprintf("%s://%s/system", proto, addr))
 	}
 	return nil
 }
 
 func (c *client) connectSys(url string) error {
-	if c.sysClient.isClosed() {
+	if c.isClosed(true) {
 		return errors.New("sys client is closed")
 	}
 	// 连接
@@ -211,13 +267,13 @@ func (c *client) connectSys(url string) error {
 	if err != nil {
 		return err
 	}
-	c.sysClient.conn = conn
-	go clientHandle(c.sysClient)
+	c.connSys = conn
+	go clientHandle(c, true)
 	return nil
 }
 
 func (c *client) connectUser(url string) error {
-	if c.isClosed() {
+	if c.isClosed(false) {
 		return errors.New("client is closed")
 	}
 	// 连接
@@ -226,12 +282,16 @@ func (c *client) connectUser(url string) error {
 		return err
 	}
 	c.conn = conn
-	go clientHandle(c)
+	go clientHandle(c, false)
 	return nil
 }
 
 func (c *client) Push(route string, data any) error {
-	if c.isClosed() {
+	return c.push(route, data, false)
+}
+
+func (c *client) push(route string, data any, isSys bool) error {
+	if c.isClosed(isSys) {
 		return errors.New("client is closed")
 	}
 	dataBytes, err := c.config.Codec.Marshal(data)
@@ -243,17 +303,21 @@ func (c *client) Push(route string, data any) error {
 		Route: route,
 		Type:  messageTypePush,
 		Data:  string(dataBytes),
-	})
+	}, isSys)
 	return err
 }
 
 func (c *client) RequestAsync(route string, data any, callback any) error {
+	return c.requestAsync(route, data, callback, false)
+}
+
+func (c *client) requestAsync(route string, data any, callback any, isSys bool) error {
 	// 检查函数签名
 	err := checkFuncType(callback, false)
 	if err != nil {
 		return err
 	}
-	if c.isClosed() {
+	if c.isClosed(isSys) {
 		return errors.New("client is closed")
 	}
 	id := uuid.New().String()
@@ -261,11 +325,11 @@ func (c *client) RequestAsync(route string, data any, callback any) error {
 	c.addResponse(id, &response{
 		fn: callback,
 		ch: ch,
-	})
+	}, isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(c.config.Timeout)
-		c.deleteResponse(id)
+		c.deleteResponse(id, isSys)
 	}()
 	dataBytes, err := c.config.Codec.Marshal(data)
 	if err != nil {
@@ -276,7 +340,7 @@ func (c *client) RequestAsync(route string, data any, callback any) error {
 		Route: route,
 		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
-	})
+	}, isSys)
 	if err != nil {
 		return err
 	}
@@ -284,12 +348,16 @@ func (c *client) RequestAsync(route string, data any, callback any) error {
 }
 
 func (c *client) Request(ctx context.Context, route string, data any, callback any) error {
+	return c.request(ctx, route, data, callback, false)
+}
+
+func (c *client) request(ctx context.Context, route string, data any, callback any, isSys bool) error {
 	// 检查函数签名
 	err := checkFuncType(callback, false)
 	if err != nil {
 		return err
 	}
-	if c.isClosed() {
+	if c.isClosed(isSys) {
 		return errors.New("client is closed")
 	}
 	id := uuid.New().String()
@@ -297,11 +365,11 @@ func (c *client) Request(ctx context.Context, route string, data any, callback a
 	c.addResponse(id, &response{
 		fn: callback,
 		ch: ch,
-	})
+	}, isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
 		<-time.After(c.config.Timeout)
-		c.deleteResponse(id)
+		c.deleteResponse(id, isSys)
 	}()
 	dataBytes, err := c.config.Codec.Marshal(data)
 	if err != nil {
@@ -312,7 +380,7 @@ func (c *client) Request(ctx context.Context, route string, data any, callback a
 		Route: route,
 		Type:  messageTypeRequest,
 		Data:  string(dataBytes),
-	})
+	}, isSys)
 	if err != nil {
 		return err
 	}
@@ -323,9 +391,7 @@ func (c *client) Request(ctx context.Context, route string, data any, callback a
 		}
 		return fmt.Errorf("%v", data.Data)
 	case <-ctx.Done():
-		c.responsesLock.Lock()
-		delete(c.responses, id)
-		c.responsesLock.Unlock()
+		c.deleteResponse(id, isSys)
 		return ctx.Err()
 	}
 }
@@ -334,41 +400,72 @@ func (c *client) GetConfig() *clientConfig {
 	return c.config
 }
 
-func (c *client) Close() error {
-	c.closedLock.Lock()
-	defer c.closedLock.Unlock()
-
-	if c.closed {
-		return nil
-	}
-	c.closed = true
-	// 退出读取协程
-	if c.cancel != nil {
-		c.cancel()
-	}
-	// 关闭WebSocket连接
-	if c.conn != nil {
-		err := c.conn.Close()
-		if err != nil {
-			return err
-		}
-		c.conn = nil
-	}
-	// 清理响应通道，防止内存泄漏
-	c.responsesLock.Lock()
-	for id, resp := range c.responses {
-		if resp.ch != nil {
-			close(resp.ch)
-		}
-		delete(c.responses, id)
-	}
-	c.responsesLock.Unlock()
-
-	return nil
+func (c *client) Close() {
+	c.closeUser()
+	c.closeSys()
 }
 
-func (c *client) isClosed() bool {
-	c.closedLock.RLock()
-	defer c.closedLock.RUnlock()
-	return c.closed
+func (c *client) closeSys() {
+	c.closedSysLock.Lock()
+	if !c.closedSys {
+		c.closedSys = true
+		// 退出读取协程
+		if c.cancelSys != nil {
+			c.cancelSys()
+		}
+		// 关闭WebSocket连接
+		if c.connSys != nil {
+			c.connSys.Close()
+			c.connSys = nil
+		}
+		// 清理响应通道，防止内存泄漏
+		c.responsesSysLock.Lock()
+		for id, resp := range c.responsesSys {
+			if resp.ch != nil {
+				close(resp.ch)
+			}
+			delete(c.responsesSys, id)
+		}
+		c.responsesSysLock.Unlock()
+	}
+	c.closedSysLock.Unlock()
+}
+
+func (c *client) closeUser() {
+	c.closedLock.Lock()
+	if !c.closed {
+		c.closed = true
+		// 退出读取协程
+		if c.cancel != nil {
+			c.cancel()
+		}
+		// 关闭WebSocket连接
+		if c.conn != nil {
+			c.conn.Close()
+			c.conn = nil
+		}
+		// 清理响应通道，防止内存泄漏
+		c.responsesLock.Lock()
+		for id, resp := range c.responses {
+			if resp.ch != nil {
+				close(resp.ch)
+			}
+			delete(c.responses, id)
+		}
+		c.responsesLock.Unlock()
+	}
+	c.closedLock.Unlock()
+}
+
+func (c *client) isClosed(isSys bool) bool {
+	lock := &c.closedLock
+	closed := &c.closed
+	if isSys {
+		lock = &c.closedSysLock
+		closed = &c.closedSys
+	}
+
+	lock.RLock()
+	defer lock.RUnlock()
+	return *closed
 }

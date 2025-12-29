@@ -6,16 +6,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func clientHandle(c *client) {
+func clientHandle(c *client, isSys bool) {
+	ctx := c.ctx
+	conn := c.conn
+	if isSys {
+		ctx = c.ctxSys
+		conn = c.connSys
+	}
+	ctxClient := newClientContext(c)
 MAINFOR:
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
-		msgType, msg, err := c.conn.ReadMessage()
+		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
 			break
 		}
@@ -28,13 +35,13 @@ MAINFOR:
 		if err != nil {
 			continue
 		}
-		// 回复的消息
+		// 推送的回复，忽略
 		if req.Type == messageTypePushBack {
 			continue
 		}
-		ctx := newClientContext(c)
+		// 请求的回复
 		if req.Type == messageTypeRequestBack {
-			resp, ok := c.getResponse(req.ID)
+			resp, ok := c.getResponse(req.ID, isSys)
 			if !ok {
 				continue
 			}
@@ -45,7 +52,7 @@ MAINFOR:
 				}
 				continue
 			}
-			_, err = call(resp.fn, ctx, req.Data)
+			_, err = call(resp.fn, ctxClient, req.Data)
 			if err != nil {
 				resp.ch <- chanData{
 					Success: false,
@@ -58,19 +65,26 @@ MAINFOR:
 			}
 			continue
 		}
-
 		// 请求的消息
 		resType := messageTypeRequestBack
 		if req.Type == messageTypePush {
 			resType = messageTypePushBack
 		}
 		// 中间件处理
-		c.middlewaresLock.Lock()
-		for _, middleware := range c.middlewares {
+		lock := &c.middlewaresLock
+		if isSys {
+			lock = &c.middlewaresSysLock
+		}
+		lock.Lock()
+		middlewares := c.middlewares
+		if isSys {
+			middlewares = c.middlewaresSys
+		}
+		for _, middleware := range middlewares {
 			if !strings.HasPrefix(req.Route, middleware.route) {
 				continue
 			}
-			_, err = call(middleware.fn, ctx, req.Data)
+			_, err = call(middleware.fn, ctxClient, req.Data)
 			if err != nil {
 				c.config.Logger.Error("call middleware func failed", "err", err)
 				err = c.send(&message{
@@ -78,36 +92,37 @@ MAINFOR:
 					Type:    resType,
 					Data:    err.Error(),
 					Success: false,
-				})
+				}, isSys)
 				if err != nil {
 					c.config.Logger.Error("send middleware error failed", "err", err)
 				}
+				lock.Unlock()
 				continue MAINFOR
 			}
 		}
-		c.middlewaresLock.Unlock()
+		lock.Unlock()
 		// 路由处理
-		fn, ok := c.getRoute(req.Route)
+		fn, ok := c.getRoute(req.Route, isSys)
 		if !ok {
 			err = c.send(&message{
 				ID:      req.ID,
 				Type:    resType,
 				Data:    "route not found",
 				Success: false,
-			})
+			}, isSys)
 			if err != nil {
 				c.config.Logger.Error("send route not found failed", "err", err)
 			}
 			continue
 		}
-		data, err := call(fn, ctx, req.Data)
+		data, err := call(fn, ctxClient, req.Data)
 		if err != nil {
 			err = c.send(&message{
 				ID:      req.ID,
 				Type:    resType,
 				Data:    err.Error(),
 				Success: false,
-			})
+			}, isSys)
 			if err != nil {
 				c.config.Logger.Error("send route error failed", "err", err)
 			}
@@ -118,7 +133,7 @@ MAINFOR:
 			Type:    resType,
 			Data:    data,
 			Success: true,
-		})
+		}, isSys)
 		if err != nil {
 			c.config.Logger.Error("send route success failed", "err", err)
 		}

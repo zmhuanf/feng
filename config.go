@@ -63,18 +63,21 @@ type clientConfig struct {
 	Timeout time.Duration
 	// 启用TLS
 	EnableTLS bool
+	// 直连模式
+	DirectConnect bool
 	// 模式
 	mode mode
 }
 
 func NewDefaultClientConfig() *clientConfig {
 	return &clientConfig{
-		Addr:      "127.0.0.1",
-		Port:      22100,
-		Codec:     NewJsonCodec(),
-		Logger:    NewSlogLogger(),
-		Timeout:   5 * time.Minute,
-		EnableTLS: false,
-		mode:      tModeClient,
+		Addr:          "127.0.0.1",
+		Port:          22100,
+		Codec:         NewJsonCodec(),
+		Logger:        NewSlogLogger(),
+		Timeout:       5 * time.Minute,
+		EnableTLS:     false,
+		DirectConnect: true,
+		mode:          tModeClient,
 	}
 }
