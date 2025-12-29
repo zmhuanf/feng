@@ -80,10 +80,17 @@ func TestClient3(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	err = client.Request(context.Background(), "/test_3",
+	err = client.AddHandler("/hello", func(ctx IClientContext, a A) {
+		t.Logf("hello response: %v", a)
+	})
+	if err != nil {
+		t.Fatalf("add handler failed: %v", err)
+	}
+
+	err = client.Request(context.Background(), "/cocos_test",
 		A{Name: "feng", Age: 18},
 		func(ctx IClientContext, a A) {
-			t.Logf("response: %v", a)
+			t.Logf("request cocos response: %v", a)
 		},
 	)
 	if err != nil {

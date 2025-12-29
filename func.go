@@ -51,6 +51,9 @@ func call(f any, c any, data string) (string, error) {
 	rets := fv.Call(params)
 	// 有返回值，处理返回值
 	switch len(rets) {
+	case 0:
+		// 没有返回值，直接返回
+		return "", nil
 	case 1:
 		// 只有一个返回值，是error
 		if !rets[0].IsNil() {
