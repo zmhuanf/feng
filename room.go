@@ -3,6 +3,8 @@ package feng
 import (
 	"fmt"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 type IRoom interface {
@@ -23,21 +25,33 @@ type room struct {
 	id string
 	// 用户列表
 	users map[string]IUser
-	// 房间锁
+	// 用户锁
 	lock sync.RWMutex
+	// 服务器
+	server *server
+	// 是否是系统房间
+	isSys bool
 }
 
-func NewRoom(id string) IRoom {
-	return &room{
-		id:    id,
-		users: make(map[string]IUser),
+func newRoom(s *server, isSys bool) *room {
+	r := &room{
+		id:     uuid.New().String(),
+		users:  make(map[string]IUser),
+		server: s,
+		isSys:  isSys,
 	}
+	s.addRoom(r, isSys)
+	return r
 }
 
 func (r *room) AddUser(user IUser) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	r.users[user.GetID()] = user
+	oldRoom := user.GetRoom()
+	if oldRoom != nil {
+		oldRoom.RemoveUser(user)
+	}
 	user.SetRoom(r)
 	return nil
 }
@@ -46,7 +60,9 @@ func (r *room) RemoveUser(user IUser) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	delete(r.users, user.GetID())
-	user.SetRoom(nil)
+	if len(r.users) == 0 {
+		r.server.removeRoom(r.GetID(), r.isSys)
+	}
 	return nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -26,27 +25,18 @@ func serverHandle(s *server, isSys bool) func(c *gin.Context) {
 		defer conn.Close()
 
 		// 创建上下文
-		u := &user{
-			id:     uuid.New().String(),
-			server: s,
-			conn:   conn,
-			isSys:  isSys,
-		}
-		r := &room{
-			id:    uuid.New().String(),
-			users: map[string]IUser{u.id: u},
-		}
-		u.room = r
-		ctx := newServerContext(r, u, s)
-		s.addUser(u, isSys)
-		s.addRoom(r, isSys)
-		u.SetContext(ctx)
+		ctx := newServerContext(s)
+		r := newRoom(s, isSys)
+		u := newUser(s, ctx, r, conn, isSys)
+		ctx.user = u
+		ctx.room = r
 
 		// 主消息循环
 		for {
 			msgType, msg, err := conn.ReadMessage()
 			if err != nil {
 				s.config.Logger.Error("read message failed", "err", err)
+				s.removeUser(u.id, isSys)
 				break
 			}
 			if msgType != websocket.TextMessage {

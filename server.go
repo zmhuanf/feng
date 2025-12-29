@@ -339,7 +339,7 @@ func (s *server) getAllUsers(isSys bool) []IUser {
 	return users
 }
 
-func (s *server) addRoom(r IRoom, isSys bool) {
+func (s *server) addRoom(r *room, isSys bool) {
 	lock := &s.userData.roomsLock
 	rooms := s.userData.rooms
 	if isSys {
@@ -349,10 +349,23 @@ func (s *server) addRoom(r IRoom, isSys bool) {
 
 	lock.Lock()
 	defer lock.Unlock()
-	rooms[r.GetID()] = r.(*room)
+	rooms[r.GetID()] = r
 }
 
-func (s *server) addUser(u IUser, isSys bool) {
+func (s *server) removeRoom(id string, isSys bool) {
+	lock := &s.userData.roomsLock
+	rooms := s.userData.rooms
+	if isSys {
+		lock = &s.sysData.roomsLock
+		rooms = s.sysData.rooms
+	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	delete(rooms, id)
+}
+
+func (s *server) addUser(u *user, isSys bool) {
 	lock := &s.userData.usersLock
 	users := s.userData.users
 	if isSys {
@@ -362,7 +375,22 @@ func (s *server) addUser(u IUser, isSys bool) {
 
 	lock.Lock()
 	defer lock.Unlock()
-	users[u.GetID()] = u.(*user)
+	users[u.GetID()] = u
+}
+
+func (s *server) removeUser(id string, isSys bool) {
+	lock := &s.userData.usersLock
+	users := s.userData.users
+	if isSys {
+		lock = &s.sysData.usersLock
+		users = s.sysData.users
+	}
+
+	lock.Lock()
+	defer lock.Unlock()
+	room := users[id].GetRoom()
+	room.RemoveUser(users[id])
+	delete(users, id)
 }
 
 func (s *server) addSystemHandler() {

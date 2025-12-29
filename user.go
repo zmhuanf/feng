@@ -15,6 +15,7 @@ type IUser interface {
 	SetRoom(room IRoom)
 	GetContext() IServerContext
 	SetContext(ctx IServerContext)
+	CreateAndJoinRoom() error
 
 	Push(string, any) error
 	Request(context.Context, string, any, any) error
@@ -24,16 +25,29 @@ type IUser interface {
 type user struct {
 	// 用户ID
 	id string
+	// 服务
+	server *server
 	// 上下文
 	ctx IServerContext
 	// 房间
 	room *room
-	// 服务
-	server *server
 	// 链接
 	conn *websocket.Conn
 	// 是否是系统用户
 	isSys bool
+}
+
+func newUser(s *server, ctx IServerContext, room *room, conn *websocket.Conn, isSys bool) *user {
+	u := &user{
+		id:     uuid.New().String(),
+		ctx:    ctx,
+		server: s,
+		room:   room,
+		conn:   conn,
+		isSys:  isSys,
+	}
+	s.addUser(u, isSys)
+	return u
 }
 
 func (u *user) send(res *message) error {
@@ -161,4 +175,13 @@ func (u *user) GetContext() IServerContext {
 
 func (u *user) SetContext(ctx IServerContext) {
 	u.ctx = ctx
+}
+
+func (u *user) CreateAndJoinRoom() error {
+	newRoom := newRoom(u.server, u.isSys)
+	err := newRoom.AddUser(u)
+	if err != nil {
+		return err
+	}
+	return nil
 }

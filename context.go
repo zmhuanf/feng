@@ -24,10 +24,8 @@ type fServerContext struct {
 	server IServer
 }
 
-func newServerContext(room IRoom, user IUser, server IServer) IServerContext {
+func newServerContext(server IServer) *fServerContext {
 	return &fServerContext{
-		room:   room,
-		user:   user,
 		server: server,
 	}
 }
