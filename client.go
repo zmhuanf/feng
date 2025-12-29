@@ -210,7 +210,11 @@ func (c *client) deleteResponse(id string, isSys bool) {
 func (c *client) Connect() error {
 	// 协议
 	addr := fmt.Sprintf("%s:%d", c.config.Addr, c.config.Port)
-	return c.connect(addr, !c.GetConfig().DirectConnect)
+	needNew := !c.GetConfig().DirectConnect
+	if c.config.mode == tModeServer {
+		needNew = false
+	}
+	return c.connect(addr, needNew)
 }
 
 func (c *client) connect(addr string, needNew bool) error {
