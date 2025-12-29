@@ -247,9 +247,9 @@ func (c *client) Push(route string, data any) error {
 	return err
 }
 
-func (c *client) RequestAsync(route string, data any, handler any) error {
+func (c *client) RequestAsync(route string, data any, callback any) error {
 	// 检查函数签名
-	err := checkFuncType(handler, false)
+	err := checkFuncType(callback, false)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	c.addResponse(id, &response{
-		fn: handler,
+		fn: callback,
 		ch: ch,
 	})
 	// 配置一个额外的删除，防止内存泄漏
@@ -283,9 +283,9 @@ func (c *client) RequestAsync(route string, data any, handler any) error {
 	return nil
 }
 
-func (c *client) Request(ctx context.Context, route string, data any, handler any) error {
+func (c *client) Request(ctx context.Context, route string, data any, callback any) error {
 	// 检查函数签名
-	err := checkFuncType(handler, false)
+	err := checkFuncType(callback, false)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (c *client) Request(ctx context.Context, route string, data any, handler an
 	id := uuid.New().String()
 	ch := make(chan chanData)
 	c.addResponse(id, &response{
-		fn: handler,
+		fn: callback,
 		ch: ch,
 	})
 	// 配置一个额外的删除，防止内存泄漏

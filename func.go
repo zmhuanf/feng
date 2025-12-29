@@ -52,19 +52,11 @@ func call(f any, c any, data string) (string, error) {
 	// 有返回值，处理返回值
 	switch len(rets) {
 	case 1:
-		// 只有一个返回值，可能是error或者结果
-		if rets[0].Type().Implements(reflect.TypeFor[error]()) {
-			if !rets[0].IsNil() {
-				return "", rets[0].Interface().(error)
-			}
-			return "", nil
+		// 只有一个返回值，是error
+		if !rets[0].IsNil() {
+			return "", rets[0].Interface().(error)
 		}
-		result := rets[0].Interface()
-		resultBytes, err := codec.Marshal(result)
-		if err != nil {
-			return "", err
-		}
-		return string(resultBytes), nil
+		return "", nil
 	case 2:
 		// 有两个返回值，第一个是结果，第二个是error
 		if !rets[1].IsNil() {

@@ -10,23 +10,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type messageType int
-
-const (
-	messageTypeRequest messageType = iota
-	messageTypePush
-	messageTypeRequestBack
-	messageTypePushBack
-)
-
-type message struct {
-	Route   string      `json:"route"`
-	ID      string      `json:"id"`
-	Type    messageType `json:"type"`
-	Data    string      `json:"data"`
-	Success bool        `json:"success"`
-}
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
