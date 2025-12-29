@@ -13,6 +13,8 @@ type IUser interface {
 	GetID() string
 	GetRoom() IRoom
 	SetRoom(room IRoom)
+	GetContext() IServerContext
+	SetContext(ctx IServerContext)
 
 	Push(string, any) error
 	Request(context.Context, string, any, any) error
@@ -22,6 +24,8 @@ type IUser interface {
 type user struct {
 	// 用户ID
 	id string
+	// 上下文
+	ctx IServerContext
 	// 房间
 	room *room
 	// 服务
@@ -149,4 +153,12 @@ func (u *user) GetRoom() IRoom {
 
 func (u *user) SetRoom(r IRoom) {
 	u.room = r.(*room)
+}
+
+func (u *user) GetContext() IServerContext {
+	return u.ctx
+}
+
+func (u *user) SetContext(ctx IServerContext) {
+	u.ctx = ctx
 }

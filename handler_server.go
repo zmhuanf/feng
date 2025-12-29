@@ -40,6 +40,7 @@ func serverHandle(s *server, isSys bool) func(c *gin.Context) {
 		ctx := newServerContext(r, u, s)
 		s.addUser(u, isSys)
 		s.addRoom(r, isSys)
+		u.SetContext(ctx)
 
 		// 主消息循环
 		for {
