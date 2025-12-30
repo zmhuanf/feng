@@ -16,7 +16,7 @@ type jsonCodec struct {
 func (j *jsonCodec) Marshal(v any) ([]byte, error) {
 	switch val := v.(type) {
 	case nil:
-		return []byte("null"), nil
+		return []byte(""), nil
 	case []byte:
 		return val, nil
 	case string:
