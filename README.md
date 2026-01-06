@@ -1,4 +1,171 @@
+[English](#-feng) | [中文](#-feng-中文)
+
 # 🍃 Feng
+
+`feng` is a game communication framework based on **Gin** and **Websocket**.
+
+Its design philosophy is not to pursue extreme performance, but to provide an **easy-to-use and concise** communication solution to help developers quickly build game servers.
+
+> ⚠️ **Note**: This project is currently under active development. Significant API changes may occur before the first official release.
+
+---
+
+## 🎮 Multi-platform Support
+
+In addition to the Go client, `feng` is committed to supporting all mainstream game engines:
+
+- **Cocos**: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
+- **Unity**: [feng-unity](https://github.com/zmhuanf/feng-unity)
+
+---
+
+## 🚀 Quick Start
+
+Creating an Echo service with `feng` is very simple.
+
+### Server
+
+```go
+server := feng.NewServer(feng.NewDefaultServerConfig())
+
+// Register a simple echo interface
+server.AddHandler("/echo", func(ctx feng.IServerContext, msg string) (string, error) {
+    return msg, nil
+})
+
+server.Start()
+```
+
+### Client
+
+Calling the interface is also very intuitive:
+
+```go
+client := feng.NewClient(feng.NewDefaultClientConfig())
+client.Connect()
+defer client.Close()
+
+// Send request and handle callback
+client.Request(context.TODO(), "/echo", "hello, world!", func(ctx feng.IClientContext, msg string) {
+    fmt.Println(msg)
+})
+```
+*(Note: Error handling is omitted in the above example for brevity)*
+
+---
+
+## 📖 Basic Concepts
+
+### 🖥️ Server
+
+#### AddHandler
+The server registers business logic through the `AddHandler` method.
+
+*   **Path**: First parameter. Can be any string, not strictly required to start with `/`.
+*   **Handler Function**: Second parameter.
+    *   **Parameters**:
+        1.  `ctx feng.IServerContext` (Required)
+        2.  `Request Data` (Optional): Can be `string`, `[]byte`, or any struct deserializable by `ICodec`.
+    *   **Return Values**:
+        1.  `Response Data` (Optional): Returned as the first value when there are two return values. Can be `string`, `[]byte`, or any struct serializable by `ICodec`.
+        2.  `error` (Required): Indicates the processing result. It is the only return value if no data is returned; otherwise, it is the second return value.
+
+#### Middleware
+Added via `AddMiddleware`.
+*   **Scope**: First parameter is the path prefix. Middleware applies to all handlers matching that prefix in the order they were added.
+*   **Signature**: Parameters are the same as handler functions, but the **return value must only be `error`**.
+*   **Interception**: Returning a non-`nil` error prevents subsequent handlers from executing.
+
+### 📱 Client
+
+#### Request
+Send bidirectional requests via the `Request` method.
+*   **Parameters**:
+    1.  `Context`
+    2.  `Path`: Handler path
+    3.  `Data`: Request data
+    4.  `Callback`: Callback function (same parameters as handler function, no return value), called after receiving the response.
+
+#### Push
+Send unidirectional messages via the `Push` method.
+*   **Parameters**: Path, Data.
+
+#### Client Handler
+Clients can also register interfaces for the server to call via `AddHandler` and `AddMiddleware`, with usage identical to the server side, except the context interface is `IClientContext`.
+
+---
+
+## 💡 Practical Example
+
+Below is an example closer to a production environment, including simple login verification and data retrieval.
+
+```go
+func main() {
+	opt := feng.NewDefaultServerConfig()
+	opt.Addr = "0.0.0.0"
+	opt.Port = 22002
+	server := feng.NewServer(opt)
+
+	// Register routes
+	server.AddHandler("/login", LoginHandler)
+	server.AddHandler("/get_account_info", GetAccountInfoHandler)
+
+	// Start service
+	err := server.Start()
+	if err != nil {
+		slog.Error("GM Service start failed", "error", err)
+		return
+	}
+}
+
+// Define request struct
+type LoginReq struct {
+	Token string `json:"token"`
+}
+
+// Handler: Login
+func LoginHandler(ctx feng.IServerContext, data LoginReq) error {
+	configs := config.GetConfig()
+	
+    // Validate Token
+	uuid, err := tool.ValidateToken(data.Token, configs.JWTKey)
+	if err != nil {
+		slog.Error("Token validation failed", "error", err)
+		return err
+	}
+    
+    // Store UUID in context for subsequent use
+	ctx.Set("uuid", uuid)
+	return nil
+}
+
+// Handler: Get Account Info
+func GetAccountInfoHandler(ctx feng.IServerContext) (map[string]any, error) {
+	uuid, ok := ctx.Get("uuid")
+	if !ok {
+		slog.Error("uuid does not exist")
+		return nil, errors.New("Illegal request")
+	}
+
+    // Simulate getting user from database
+	user, err := mongodb.GetUser(context.Background(), uuid.(string))
+	if err != nil {
+		slog.Error("GetAccountInfoHandler GetUser failed", "uuid", uuid, "err", err)
+		return nil, errors.New("Internal server error")
+	}
+
+	return map[string]any{
+		"name":      user.Name,
+		"is_tester": user.IsTester,
+	}, nil
+}
+```
+
+---
+
+<br/>
+
+# 🍃 Feng (中文)
 
 `feng` 是一个基于 **Gin** 和 **Websocket** 的游戏通信框架。
 
