@@ -332,8 +332,14 @@ func (c *client) requestAsync(route string, data any, callback any, isSys bool) 
 	}, isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
-		<-time.After(c.config.Timeout)
-		c.deleteResponse(id, isSys)
+		timer := time.NewTimer(c.config.Timeout)
+		defer timer.Stop()
+
+		select {
+		case <-timer.C:
+			c.deleteResponse(id, isSys)
+		case <-ch:
+		}
 	}()
 	dataBytes, err := c.config.Codec.Marshal(data)
 	if err != nil {
@@ -370,13 +376,12 @@ func (c *client) request(ctx context.Context, route string, data any, callback a
 		fn: callback,
 		ch: ch,
 	}, isSys)
-	// 配置一个额外的删除，防止内存泄漏
-	go func() {
-		<-time.After(c.config.Timeout)
-		c.deleteResponse(id, isSys)
-	}()
+	// 超时删除
+	timer := time.NewTimer(c.config.Timeout)
+	defer timer.Stop()
 	dataBytes, err := c.config.Codec.Marshal(data)
 	if err != nil {
+		c.deleteResponse(id, isSys)
 		return err
 	}
 	err = c.send(&message{
@@ -386,6 +391,7 @@ func (c *client) request(ctx context.Context, route string, data any, callback a
 		Data:  string(dataBytes),
 	}, isSys)
 	if err != nil {
+		c.deleteResponse(id, isSys)
 		return err
 	}
 	select {
@@ -396,7 +402,12 @@ func (c *client) request(ctx context.Context, route string, data any, callback a
 		return fmt.Errorf("%v", data.Data)
 	case <-ctx.Done():
 		c.deleteResponse(id, isSys)
+		close(ch)
 		return ctx.Err()
+	case <-timer.C:
+		c.deleteResponse(id, isSys)
+		close(ch)
+		return fmt.Errorf("request timeout")
 	}
 }
 

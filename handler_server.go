@@ -84,9 +84,11 @@ func handleRequestBack(ctx IServerContext, s *server, req *message, isSys bool) 
 	if !ok {
 		return fmt.Errorf("response not found, id: %s", req.ID)
 	}
-	// 删除响应防止内存泄漏
-	close(resp.ch)
-	s.deleteResponse(req.ID, isSys)
+	// 防止内存泄漏
+	defer func() {
+		close(resp.ch)
+		s.deleteResponse(req.ID, isSys)
+	}()
 	// 处理响应
 	if !req.Success {
 		resp.ch <- chanData{

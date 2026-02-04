@@ -45,6 +45,7 @@ MAINFOR:
 			if !ok {
 				continue
 			}
+			c.deleteResponse(req.ID, isSys)
 			if !req.Success {
 				resp.ch <- chanData{
 					Success: false,
@@ -63,6 +64,7 @@ MAINFOR:
 			resp.ch <- chanData{
 				Success: true,
 			}
+			close(resp.ch)
 			continue
 		}
 		// 请求的消息

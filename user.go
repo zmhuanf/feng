@@ -71,9 +71,14 @@ func (u *user) RequestAsync(route string, data any, fn any) error {
 	}, u.isSys)
 	// 配置一个额外的删除，防止内存泄漏
 	go func() {
-		<-time.After(u.server.config.Timeout)
-		close(ch)
-		u.server.deleteResponse(id, u.isSys)
+		timer := time.NewTimer(u.server.config.Timeout)
+		defer timer.Stop()
+
+		select {
+		case <-timer.C:
+			u.server.deleteResponse(id, u.isSys)
+		case <-ch:
+		}
 	}()
 	dataBytes, err := u.server.config.Codec.Marshal(data)
 	if err != nil {
@@ -103,12 +108,9 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 		fn: fn,
 		ch: ch,
 	}, u.isSys)
-	// 配置一个额外的删除，防止内存泄漏
-	go func() {
-		<-time.After(u.server.config.Timeout)
-		close(ch)
-		u.server.deleteResponse(id, u.isSys)
-	}()
+	// 超时删除
+	timer := time.NewTimer(u.server.config.Timeout)
+	defer timer.Stop()
 	dataBytes, err := u.server.config.Codec.Marshal(data)
 	if err != nil {
 		return err
@@ -129,16 +131,13 @@ func (u *user) Request(ctx context.Context, route string, data any, fn any) erro
 		}
 		return fmt.Errorf("%v", data.Data)
 	case <-ctx.Done():
-		mutex := &u.server.userData.responsesLock
-		responses := u.server.userData.responses
-		if u.isSys {
-			mutex = &u.server.sysData.responsesLock
-			responses = u.server.sysData.responses
-		}
-		mutex.Lock()
-		delete(responses, id)
-		mutex.Unlock()
+		u.server.deleteResponse(id, u.isSys)
+		close(ch)
 		return ctx.Err()
+	case <-timer.C:
+		u.server.deleteResponse(id, u.isSys)
+		close(ch)
+		return fmt.Errorf("request timeout")
 	}
 }
 
