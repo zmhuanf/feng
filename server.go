@@ -15,35 +15,15 @@ type IServer interface {
 
 	Start() error
 	Stop() error
-	AddHandler(string, any) error
-	AddMiddleware(string, any) error
+	AddHandler(route string, callback any) error
+	AddMiddleware(route string, middleware any) error
+
 	GetRoom(id string) (IRoom, error)
 	GetAllRooms() []IRoom
+	GetRoomByPage(page int) []IRoom
 	GetUser(id string) (IUser, error)
 	GetAllUsers() []IUser
-}
-
-type serverData struct {
-	// 路由
-	route map[string]any
-	// 路由锁
-	routeLock sync.RWMutex
-	// 中间层
-	middlewares []*middleware
-	// 中间层锁
-	middlewaresLock sync.RWMutex
-	// 响应
-	responses map[string]*response
-	// 响应锁
-	responsesLock sync.RWMutex
-	// 用户列表
-	users map[string]*user
-	// 用户锁
-	usersLock sync.RWMutex
-	// 房间列表
-	rooms map[string]*room
-	// 房间锁
-	roomsLock sync.RWMutex
+	GetUsersByPage(page int) []IUser
 }
 
 type serverStatus struct {
@@ -61,9 +41,9 @@ type server struct {
 	// 配置
 	config *serverConfig
 	// 用户数据
-	userData serverData
+	userData *serverData
 	// 系统数据
-	sysData serverData
+	sysData *serverData
 	// 服务器状态
 	status serverStatus
 	// 状态锁
@@ -74,16 +54,6 @@ type server struct {
 	otherStatusLock sync.RWMutex
 }
 
-type middleware struct {
-	route string
-	fn    any
-}
-
-type response struct {
-	fn any
-	ch chan chanData
-}
-
 type chanData struct {
 	Success bool `json:"success"`
 	Data    any  `json:"data"`
@@ -91,21 +61,9 @@ type chanData struct {
 
 func NewServer(config *serverConfig) IServer {
 	return &server{
-		config: config,
-		userData: serverData{
-			route:       make(map[string]any),
-			middlewares: make([]*middleware, 0),
-			responses:   make(map[string]*response),
-			users:       make(map[string]*user),
-			rooms:       make(map[string]*room),
-		},
-		sysData: serverData{
-			route:       make(map[string]any),
-			middlewares: make([]*middleware, 0),
-			responses:   make(map[string]*response),
-			users:       make(map[string]*user),
-			rooms:       make(map[string]*room),
-		},
+		config:   config,
+		userData: newServerData(config),
+		sysData:  newServerData(config),
 		status: serverStatus{
 			Url:        config.Addr,
 			Load:       0,
@@ -260,20 +218,12 @@ func (s *server) GetRoom(id string) (IRoom, error) {
 }
 
 func (s *server) getRoom(id string, isSys bool) (IRoom, error) {
-	lock := &s.userData.roomsLock
-	rooms := s.userData.rooms
+	manage := s.userData.roomManage
 	if isSys {
-		lock = &s.sysData.roomsLock
-		rooms = s.sysData.rooms
+		manage = s.sysData.roomManage
 	}
 
-	lock.RLock()
-	defer lock.RUnlock()
-	room, ok := rooms[id]
-	if !ok {
-		return nil, fmt.Errorf("room %s not found", id)
-	}
-	return room, nil
+	return manage.getRoom(id)
 }
 
 func (s *server) GetAllRooms() []IRoom {
@@ -281,20 +231,25 @@ func (s *server) GetAllRooms() []IRoom {
 }
 
 func (s *server) getAllRooms(isSys bool) []IRoom {
-	lock := &s.userData.roomsLock
-	roomsMap := s.userData.rooms
+	manage := s.userData.roomManage
 	if isSys {
-		lock = &s.sysData.roomsLock
-		roomsMap = s.sysData.rooms
+		manage = s.sysData.roomManage
 	}
 
-	lock.RLock()
-	defer lock.RUnlock()
-	rooms := make([]IRoom, 0, len(roomsMap))
-	for _, room := range roomsMap {
-		rooms = append(rooms, room)
+	return manage.getAllRooms()
+}
+
+func (s *server) GetRoomByPage(page int) []IRoom {
+	return s.getRoomsByPage(page, false)
+}
+
+func (s *server) getRoomsByPage(page int, isSys bool) []IRoom {
+	manage := s.userData.roomManage
+	if isSys {
+		manage = s.sysData.roomManage
 	}
-	return rooms
+
+	return manage.getRoomsByPage(page)
 }
 
 func (s *server) GetUser(id string) (IUser, error) {
@@ -302,20 +257,12 @@ func (s *server) GetUser(id string) (IUser, error) {
 }
 
 func (s *server) getUser(id string, isSys bool) (IUser, error) {
-	lock := &s.userData.usersLock
-	users := s.userData.users
+	manage := s.userData.userManage
 	if isSys {
-		lock = &s.sysData.usersLock
-		users = s.sysData.users
+		manage = s.sysData.userManage
 	}
 
-	lock.RLock()
-	defer lock.RUnlock()
-	user, ok := users[id]
-	if !ok {
-		return nil, fmt.Errorf("user %s not found", id)
-	}
-	return user, nil
+	return manage.getUser(id)
 }
 
 func (s *server) GetAllUsers() []IUser {
@@ -323,74 +270,61 @@ func (s *server) GetAllUsers() []IUser {
 }
 
 func (s *server) getAllUsers(isSys bool) []IUser {
-	lock := &s.userData.usersLock
-	usersMap := s.userData.users
+	manage := s.userData.userManage
 	if isSys {
-		lock = &s.sysData.usersLock
-		usersMap = s.sysData.users
+		manage = s.sysData.userManage
 	}
 
-	lock.RLock()
-	defer lock.RUnlock()
-	users := make([]IUser, 0, len(usersMap))
-	for _, user := range usersMap {
-		users = append(users, user)
-	}
-	return users
+	return manage.getAllUsers()
 }
 
-func (s *server) addRoom(r *room, isSys bool) {
-	lock := &s.userData.roomsLock
-	rooms := s.userData.rooms
-	if isSys {
-		lock = &s.sysData.roomsLock
-		rooms = s.sysData.rooms
-	}
-
-	lock.Lock()
-	defer lock.Unlock()
-	rooms[r.GetID()] = r
+func (s *server) GetUsersByPage(page int) []IUser {
+	return s.getUsersByPage(page, false)
 }
 
-func (s *server) removeRoom(id string, isSys bool) {
-	lock := &s.userData.roomsLock
-	rooms := s.userData.rooms
+func (s *server) getUsersByPage(page int, isSys bool) []IUser {
+	manage := s.userData.userManage
 	if isSys {
-		lock = &s.sysData.roomsLock
-		rooms = s.sysData.rooms
+		manage = s.sysData.userManage
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
-	delete(rooms, id)
+	return manage.getUsersByPage(page)
+}
+
+func (s *server) addRoom(r *room, isSys bool) error {
+	manage := s.userData.roomManage
+	if isSys {
+		manage = s.sysData.roomManage
+	}
+
+	return manage.addRoom(r)
+}
+
+func (s *server) removeRoom(id string, isSys bool) error {
+	manage := s.userData.roomManage
+	if isSys {
+		manage = s.sysData.roomManage
+	}
+
+	return manage.removeRoom(id)
 }
 
 func (s *server) addUser(u *user, isSys bool) {
-	lock := &s.userData.usersLock
-	users := s.userData.users
+	manage := s.userData.userManage
 	if isSys {
-		lock = &s.sysData.usersLock
-		users = s.sysData.users
+		manage = s.sysData.userManage
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
-	users[u.GetID()] = u
+	manage.addUser(u)
 }
 
 func (s *server) removeUser(id string, isSys bool) {
-	lock := &s.userData.usersLock
-	users := s.userData.users
+	manage := s.userData.userManage
 	if isSys {
-		lock = &s.sysData.usersLock
-		users = s.sysData.users
+		manage = s.sysData.userManage
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
-	room := users[id].GetRoom()
-	room.RemoveUser(users[id])
-	delete(users, id)
+	manage.removeUser(id)
 }
 
 func (s *server) addSystemHandler() {

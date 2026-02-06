@@ -3,6 +3,7 @@ package feng
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,13 +13,21 @@ import (
 type IUser interface {
 	GetID() string
 	GetRoom() IRoom
-	JoinRoom(IRoom)
+	JoinRoom(room IRoom)
 	CreateAndJoinRoom() error
 	GetContext() IServerContext
+	// 获取额外的数据
+	GetExtraData(key string) (any, bool)
+	// 设置额外的数据
+	SetExtraData(key string, value any)
+	// 获取当前页码
+	GetPage() int
+	// 设置当前页码
+	SetPage(page int)
 
-	Push(string, any) error
-	Request(context.Context, string, any, any) error
-	RequestAsync(string, any, any) error
+	Push(route string, data any) error
+	Request(ctx context.Context, route string, data any, callback any) error
+	RequestAsync(route string, data any, callback any) error
 }
 
 type user struct {
@@ -30,10 +39,14 @@ type user struct {
 	ctx IServerContext
 	// 房间
 	room *room
+	// 页码
+	page int
 	// 链接
 	conn *websocket.Conn
 	// 是否是系统用户
 	isSys bool
+	// 额外的数据
+	extraData sync.Map
 }
 
 func newUser(s *server, ctx IServerContext, room *room, conn *websocket.Conn, isSys bool) *user {
@@ -180,4 +193,20 @@ func (u *user) CreateAndJoinRoom() error {
 	}
 	u.room = newRoom
 	return nil
+}
+
+func (u *user) GetExtraData(key string) (any, bool) {
+	return u.extraData.Load(key)
+}
+
+func (u *user) SetExtraData(key string, value any) {
+	u.extraData.Store(key, value)
+}
+
+func (u *user) GetPage() int {
+	return u.page
+}
+
+func (u *user) SetPage(page int) {
+	u.page = page
 }

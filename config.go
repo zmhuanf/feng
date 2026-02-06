@@ -25,6 +25,8 @@ type serverConfig struct {
 	ReportInterval time.Duration
 	// 超时移除间隔
 	RemoveInterval time.Duration
+	// 每页房间数
+	PageSize int
 }
 
 func NewDefaultServerConfig() *serverConfig {
@@ -40,6 +42,7 @@ func NewDefaultServerConfig() *serverConfig {
 		NetworkSignKey: generateRandomKey(64),
 		ReportInterval: time.Minute,
 		RemoveInterval: 10 * time.Second,
+		PageSize:       10,
 	}
 }
 

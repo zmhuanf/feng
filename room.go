@@ -20,6 +20,10 @@ type IRoom interface {
 	GetAllUsers() []IUser
 	// 获取用户数量
 	GetUserCount() int
+	// 获取页码
+	GetPage() int
+	// 设置页码
+	SetPage(page int)
 }
 
 type room struct {
@@ -33,6 +37,8 @@ type room struct {
 	server *server
 	// 是否是系统房间
 	isSys bool
+	// 当前页码
+	page int
 }
 
 func newRoom(s *server, isSys bool) *room {
@@ -95,4 +101,12 @@ func (r *room) GetUserCount() int {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	return len(r.users)
+}
+
+func (r *room) GetPage() int {
+	return r.page
+}
+
+func (r *room) SetPage(page int) {
+	r.page = page
 }
