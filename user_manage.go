@@ -84,7 +84,7 @@ func (u *userManage) addUser(iuser *user) error {
 		page++
 	}
 	// 设置用户页码
-	iuser.SetPage(page)
+	iuser.setPage(page)
 	return nil
 }
 

@@ -84,7 +84,7 @@ func (r *roomManage) addRoom(iroom *room) error {
 		page++
 	}
 	// 设置房间页码
-	iroom.SetPage(page)
+	iroom.setPage(page)
 	return nil
 }
 

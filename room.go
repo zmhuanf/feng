@@ -10,8 +10,6 @@ import (
 type IRoom interface {
 	// 获取房间ID
 	GetID() string
-	// 添加用户
-	AddUser(user IUser) error
 	// 删除用户
 	RemoveUser(user IUser) error
 	// 获取用户
@@ -22,54 +20,55 @@ type IRoom interface {
 	GetUserCount() int
 	// 获取页码
 	GetPage() int
-	// 设置页码
-	SetPage(page int)
 }
 
 type room struct {
 	// 房间ID
 	id string
 	// 用户列表
-	users map[string]IUser
+	users map[string]*user
 	// 用户锁
 	lock sync.RWMutex
-	// 服务器
+	// 服务
 	server *server
 	// 是否是系统房间
 	isSys bool
 	// 当前页码
 	page int
+	// 房主
+	host *user
 }
 
-func newRoom(s *server, isSys bool) *room {
+func newRoom(server *server, isSys bool) *room {
 	r := &room{
 		id:     uuid.New().String(),
-		users:  make(map[string]IUser),
-		server: s,
+		server: server,
+		users:  make(map[string]*user),
 		isSys:  isSys,
 	}
-	s.addRoom(r, isSys)
 	return r
 }
 
-func (r *room) AddUser(user IUser) error {
+func (r *room) RemoveUser(iuser IUser) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	r.users[user.GetID()] = user
-	oldRoom := user.GetRoom()
-	if oldRoom != nil {
-		oldRoom.RemoveUser(user)
-	}
-	return nil
-}
 
-func (r *room) RemoveUser(user IUser) error {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	delete(r.users, user.GetID())
-	if len(r.users) == 0 {
-		r.server.removeRoom(r.GetID(), r.isSys)
+	// 检查用户是否存在
+	u, ok := r.users[iuser.GetID()]
+	if !ok {
+		return fmt.Errorf("user %s not found", iuser.GetID())
 	}
+	// 房主会直接解散房间
+	if iuser.GetID() == r.host.GetID() {
+		for _, user := range r.users {
+			user.setRoom(nil)
+		}
+		r.server.removeRoom(r.id, r.isSys)
+		return nil
+	}
+	// 不是房主，移除用户
+	delete(r.users, iuser.GetID())
+	u.setRoom(nil)
 	return nil
 }
 
@@ -107,6 +106,19 @@ func (r *room) GetPage() int {
 	return r.page
 }
 
-func (r *room) SetPage(page int) {
+func (r *room) setPage(page int) {
 	r.page = page
+}
+
+func (r *room) addUser(iuser *user) error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	// 检查用户是否存在
+	if _, ok := r.users[iuser.GetID()]; ok {
+		return fmt.Errorf("user %s already exists", iuser.GetID())
+	}
+	// 添加用户到房间
+	r.users[iuser.GetID()] = iuser
+	return nil
 }

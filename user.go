@@ -11,10 +11,17 @@ import (
 )
 
 type IUser interface {
+	// 获取用户ID
 	GetID() string
+	// 获取用户所在的房间
 	GetRoom() IRoom
-	JoinRoom(room IRoom)
+	// 加入房间
+	JoinRoom(room IRoom) error
+	// 创建房间并加入
 	CreateAndJoinRoom() error
+	// 退出房间
+	LeaveRoom() error
+	// 获取用户上下文
 	GetContext() IServerContext
 	// 获取额外的数据
 	GetExtraData(key string) (any, bool)
@@ -22,8 +29,6 @@ type IUser interface {
 	SetExtraData(key string, value any)
 	// 获取当前页码
 	GetPage() int
-	// 设置当前页码
-	SetPage(page int)
 
 	Push(route string, data any) error
 	Request(ctx context.Context, route string, data any, callback any) error
@@ -39,6 +44,8 @@ type user struct {
 	ctx IServerContext
 	// 房间
 	room *room
+	// 房间锁
+	roomLock sync.RWMutex
 	// 页码
 	page int
 	// 链接
@@ -173,12 +180,22 @@ func (u *user) GetID() string {
 }
 
 func (u *user) GetRoom() IRoom {
+	u.roomLock.RLock()
+	defer u.roomLock.RUnlock()
 	return u.room
 }
 
-func (u *user) JoinRoom(r IRoom) {
-	r.AddUser(u)
-	u.room = r.(*room)
+func (u *user) JoinRoom(iroom IRoom) error {
+	u.roomLock.Lock()
+	defer u.roomLock.Unlock()
+
+	r := iroom.(*room)
+	err := r.addUser(u)
+	if err != nil {
+		return err
+	}
+	u.room = r
+	return nil
 }
 
 func (u *user) GetContext() IServerContext {
@@ -187,12 +204,7 @@ func (u *user) GetContext() IServerContext {
 
 func (u *user) CreateAndJoinRoom() error {
 	newRoom := newRoom(u.server, u.isSys)
-	err := newRoom.AddUser(u)
-	if err != nil {
-		return err
-	}
-	u.room = newRoom
-	return nil
+	return u.JoinRoom(newRoom)
 }
 
 func (u *user) GetExtraData(key string) (any, bool) {
@@ -207,6 +219,25 @@ func (u *user) GetPage() int {
 	return u.page
 }
 
-func (u *user) SetPage(page int) {
+func (u *user) setPage(page int) {
 	u.page = page
+}
+
+func (u *user) LeaveRoom() error {
+	u.roomLock.Lock()
+	defer u.roomLock.Unlock()
+
+	if u.room == nil {
+		return fmt.Errorf("user %s not in any room", u.id)
+	}
+	err := u.room.RemoveUser(u)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// 设置房间
+func (u *user) setRoom(room *room) {
+	u.room = room
 }
