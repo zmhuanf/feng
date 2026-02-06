@@ -72,19 +72,11 @@ func (u *userManage) addUser(iuser *user) error {
 	// 添加用户到用户列表
 	u.users[iuser.GetID()] = iuser
 	// 添加用户到索引
-	page := 0
-	for {
-		if _, ok := u.index[page]; !ok {
-			u.index[page] = make(map[string]*user)
-		}
-		if len(u.index[page]) < u.config.PageSize {
-			u.index[page][iuser.GetID()] = iuser
-			break
-		}
-		page++
+	if _, ok := u.index[0]; !ok {
+		u.index[0] = make(map[string]*user)
 	}
 	// 设置用户页码
-	iuser.setPage(page)
+	iuser.setPage(0)
 	return nil
 }
 

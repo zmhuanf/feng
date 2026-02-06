@@ -46,6 +46,7 @@ func newRoom(server *server, isSys bool) *room {
 		users:  make(map[string]*user),
 		isSys:  isSys,
 	}
+	server.addRoom(r, isSys)
 	return r
 }
 

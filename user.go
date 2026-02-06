@@ -194,7 +194,8 @@ func (u *user) JoinRoom(iroom IRoom) error {
 	if err != nil {
 		return err
 	}
-	u.room = r
+	u.setRoom(r)
+	u.setPage(r.GetPage())
 	return nil
 }
 
@@ -204,6 +205,7 @@ func (u *user) GetContext() IServerContext {
 
 func (u *user) CreateAndJoinRoom() error {
 	newRoom := newRoom(u.server, u.isSys)
+	u.server.addRoom(newRoom, u.isSys)
 	return u.JoinRoom(newRoom)
 }
 
