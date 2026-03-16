@@ -24,6 +24,7 @@ type IServer interface {
 	GetUser(id string) (IUser, error)
 	GetAllUsers() []IUser
 	GetUsersByPage(page int) []IUser
+	GetGin() *gin.Engine
 }
 
 type serverStatus struct {
@@ -38,6 +39,8 @@ type serverStatus struct {
 }
 
 type server struct {
+	// gin 引擎
+	g *gin.Engine
 	// 配置
 	config *serverConfig
 	// 用户数据
@@ -61,6 +64,7 @@ type chanData struct {
 
 func NewServer(config *serverConfig) IServer {
 	return &server{
+		g:        nil,
 		config:   config,
 		userData: newServerData(config),
 		sysData:  newServerData(config),
@@ -74,12 +78,22 @@ func NewServer(config *serverConfig) IServer {
 	}
 }
 
+func (s *server) GetGin() *gin.Engine {
+	if s.g == nil {
+		s.g = gin.Default()
+	}
+	return s.g
+}
+
 func (s *server) GetConfig() *serverConfig {
 	return s.config
 }
 
 func (s *server) Start() error {
-	r := gin.Default()
+	if s.g == nil {
+		s.g = gin.Default()
+	}
+	r := s.g
 
 	r.GET("/game", serverHandle(s, false))
 	r.GET("/system", serverHandle(s, true))
