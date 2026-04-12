@@ -37,11 +37,18 @@ func call(f any, c any, data string) (string, error) {
 			// 接受字符串参数
 			argValue = reflect.ValueOf(string(data))
 		case reflect.Slice:
-			// 接受字节数组参数
-			if argType.Elem().Kind() != reflect.Uint8 {
-				return "", errors.New("slice arg must be []byte")
+			if argType.Elem().Kind() == reflect.Uint8 {
+				// []byte 类型，直接传递原始数据
+				argValue = reflect.ValueOf([]byte(data))
+			} else {
+				// 其他切片类型（如 []struct、[]int、[]string 等），通过 JSON 反序列化
+				argPtr := reflect.New(argType)
+				err := codec.Unmarshal([]byte(data), argPtr.Interface())
+				if err != nil {
+					return "", err
+				}
+				argValue = argPtr.Elem()
 			}
-			argValue = reflect.ValueOf(data)
 		default:
 			return "", errors.New("unsupported arg type")
 		}

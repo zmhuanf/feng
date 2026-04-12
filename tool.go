@@ -50,9 +50,7 @@ func checkFuncType(fn any, isServer bool) error {
 		secondArg := ft.In(1)
 		switch secondArg.Kind() {
 		case reflect.Slice:
-			if secondArg.Elem().Kind() != reflect.Uint8 {
-				return errors.New("second arg must be []byte, string or struct")
-			}
+			// 支持所有切片类型：[]byte、[]struct、[]int、[]string 等
 		case reflect.String:
 		case reflect.Struct:
 		default:
