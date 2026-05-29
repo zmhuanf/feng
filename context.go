@@ -2,6 +2,8 @@ package feng
 
 import (
 	"sync"
+
+	"github.com/gin-gonic/gin"
 )
 
 type IServerContext interface {
@@ -15,6 +17,8 @@ type IServerContext interface {
 	Get(key string) (any, bool)
 	// 设置上下文值
 	Set(key string, value any)
+	// 获取 Gin Context
+	GetGinContext() *gin.Context
 }
 
 type fServerContext struct {
@@ -22,11 +26,13 @@ type fServerContext struct {
 	room   IRoom
 	user   IUser
 	server IServer
+	ginCtx *gin.Context
 }
 
-func newServerContext(server IServer) *fServerContext {
+func newServerContext(server IServer, ginCtx *gin.Context) *fServerContext {
 	return &fServerContext{
 		server: server,
+		ginCtx: ginCtx,
 	}
 }
 
@@ -48,6 +54,10 @@ func (f *fServerContext) Get(key string) (any, bool) {
 
 func (f *fServerContext) Set(key string, value any) {
 	f.data.Store(key, value)
+}
+
+func (f *fServerContext) GetGinContext() *gin.Context {
+	return f.ginCtx
 }
 
 type IClientContext interface {

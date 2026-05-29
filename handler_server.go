@@ -25,7 +25,7 @@ func serverHandle(s *server, isSys bool) func(c *gin.Context) {
 		defer conn.Close()
 
 		// 创建上下文
-		ctx := newServerContext(s)
+		ctx := newServerContext(s, c)
 		r := newRoom(s, isSys)
 		u := newUser(s, ctx, r, conn, isSys)
 		ctx.user = u
