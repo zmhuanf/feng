@@ -17,8 +17,8 @@ func TestServer1(t *testing.T) {
 	config.Logger = logger
 	server := NewServer(config)
 
-	err := server.AddHandler("/test",
-		func(ctx IServerContext, data string) (string, error) {
+	err := server.Handle("/test",
+		func(ctx ServerContext, data string) (string, error) {
 			slog.Info("test", "data", data)
 			return data, nil
 		},
@@ -26,7 +26,7 @@ func TestServer1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Start()
+	server.ListenAndServe(t.Context())
 }
 
 func TestServer2(t *testing.T) {
@@ -40,9 +40,9 @@ func TestServer2(t *testing.T) {
 	config.Logger = logger
 	server := NewServer(config)
 
-	err := server.AddHandler("/test_1", func(ctx IServerContext, data string) (string, error) {
+	err := server.Handle("/test_1", func(ctx ServerContext, data string) (string, error) {
 		t.Logf("In TestServer2 /test_1: %v", data)
-		err := ctx.GetUser().Push("/res_1", data)
+		err := ctx.User().Push("/res_1", data)
 		if err != nil {
 			t.Fatalf("push failed: %v", err)
 			return "", err
@@ -52,7 +52,7 @@ func TestServer2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Start()
+	server.ListenAndServe(t.Context())
 }
 
 func TestServer3(t *testing.T) {
@@ -71,7 +71,7 @@ func TestServer3(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	err := server.AddHandler("/test_3", func(ctx IServerContext, a A) (A, error) {
+	err := server.Handle("/test_3", func(ctx ServerContext, a A) (A, error) {
 		t.Logf("In TestServer3 /test_3: %v", a)
 		a.Age += 100
 		return a, nil
@@ -79,7 +79,7 @@ func TestServer3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Start()
+	server.ListenAndServe(t.Context())
 }
 
 func TestServer4(t *testing.T) {
@@ -98,12 +98,12 @@ func TestServer4(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	err := server.AddHandler(
+	err := server.Handle(
 		"/cocos_test",
-		func(ctx IServerContext, a A) (A, error) {
+		func(ctx ServerContext, a A) (A, error) {
 			t.Logf("In TestServer4 /cocos_test: %v", a)
 
-			err := ctx.GetUser().Push("/hello", a)
+			err := ctx.User().Push("/hello", a)
 			if err != nil {
 				t.Fatalf("push failed: %v", err)
 				return a, err
@@ -118,7 +118,7 @@ func TestServer4(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Start()
+	server.ListenAndServe(t.Context())
 }
 
 func TestServer5(t *testing.T) {
@@ -132,9 +132,9 @@ func TestServer5(t *testing.T) {
 	config.Logger = logger
 	server := NewServer(config)
 
-	err := server.AddHandler(
+	err := server.Handle(
 		"/test5",
-		func(ctx IServerContext, data bool) error {
+		func(ctx ServerContext, data bool) error {
 			t.Logf("In TestServer5 /test5: %v", data)
 			return nil
 		},
@@ -152,7 +152,7 @@ func TestServer5(t *testing.T) {
 	// if err != nil {
 	// 	t.Fatal(err)
 	// }
-	server.Start()
+	server.ListenAndServe(t.Context())
 }
 
 func TestServer6(t *testing.T) {
@@ -166,11 +166,11 @@ func TestServer6(t *testing.T) {
 	config.Logger = logger
 	server := NewServer(config)
 
-	err := server.AddHandler("/a", func(ctx IServerContext, data string) {
+	err := server.Handle("/a", func(ctx ServerContext, data string) {
 		t.Logf("In TestServer6 /a: %v", data)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Start()
+	server.ListenAndServe(t.Context())
 }

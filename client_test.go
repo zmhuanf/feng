@@ -19,11 +19,11 @@ func TestClient1(t *testing.T) {
 	config.Logger = logger
 
 	client := NewClient(config)
-	err := client.Connect()
+	err := client.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
-	err = client.Request(context.Background(), "/test", "hello world", func(ctx IClientContext, data string) {
+	err = client.Request(context.Background(), "/test", "hello world", func(ctx ClientContext, data string) {
 		t.Logf("response: %v", data)
 	})
 	if err != nil {
@@ -42,11 +42,11 @@ func TestClient2(t *testing.T) {
 	config.Logger = logger
 
 	client := NewClient(config)
-	err := client.Connect()
+	err := client.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
-	err = client.AddHandler("/res_1", func(ctx IClientContext, data string) {
+	err = client.Handle("/res_1", func(ctx ClientContext, data string) {
 		t.Logf("response: %v", data)
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestClient3(t *testing.T) {
 	config.Logger = logger
 
 	client := NewClient(config)
-	err := client.Connect()
+	err := client.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestClient3(t *testing.T) {
 		Age  int    `json:"age"`
 	}
 
-	err = client.AddHandler("/hello", func(ctx IClientContext, a A) {
+	err = client.Handle("/hello", func(ctx ClientContext, a A) {
 		t.Logf("hello response: %v", a)
 	})
 	if err != nil {
@@ -89,7 +89,7 @@ func TestClient3(t *testing.T) {
 
 	err = client.Request(context.Background(), "/cocos_test",
 		A{Name: "feng", Age: 18},
-		func(ctx IClientContext, a A) {
+		func(ctx ClientContext, a A) {
 			t.Logf("request cocos response: %v", a)
 		},
 	)
@@ -110,7 +110,7 @@ func TestClient5(t *testing.T) {
 	config.Logger = logger
 
 	client := NewClient(config)
-	err := client.Connect()
+	err := client.Connect(context.Background())
 	if err != nil {
 		t.Fatalf("connect failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestClient5(t *testing.T) {
 		context.Background(),
 		"/test5",
 		true,
-		func(ctx IClientContext, data string) {
+		func(ctx ClientContext, data string) {
 			t.Logf("response: %v", data)
 		},
 	)

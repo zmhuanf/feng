@@ -1,14 +1,9 @@
 package feng
 
-import "log/slog"
+import "github.com/zmhuanf/feng/internal/core"
 
-type Logger interface {
-	Debug(string, ...any)
-	Info(string, ...any)
-	Warn(string, ...any)
-	Error(string, ...any)
-}
+type Logger = core.Logger
 
 func NewSlogLogger() Logger {
-	return slog.Default()
+	return core.NewSlogLogger()
 }
