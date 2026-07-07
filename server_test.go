@@ -134,9 +134,9 @@ func TestServer5(t *testing.T) {
 
 	err := server.Handle(
 		"/test5",
-		func(ctx ServerContext, data bool) error {
+		func(ctx ServerContext, data bool) (string, error) {
 			t.Logf("In TestServer5 /test5: %v", data)
-			return nil
+			return "hello", nil
 		},
 	)
 	if err != nil {
