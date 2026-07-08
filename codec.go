@@ -11,3 +11,7 @@ func NewJSONCodec() Codec {
 func NewJsonCodec() Codec {
 	return NewJSONCodec()
 }
+
+func NewProtoCodec() Codec {
+	return core.NewProtoCodec()
+}
