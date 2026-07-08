@@ -1,19 +1,25 @@
 [English](#-feng) | [中文](#-feng-中文)
 
-# Feng
+# 🍃 Feng
 
-`feng` is a game communication framework based on **Gin** and **WebSocket**. It focuses on a small API surface for quickly building request/response and push-style game services.
+`feng` is a game communication framework based on **Gin** and **WebSocket**. It aims to provide an **easy-to-use and concise** communication solution to help developers quickly build game servers, rather than chasing extreme performance.
 
-> Note: this project is still under active development. Breaking API changes may happen before the first stable release.
+> ⚠️ **Note**: This project is currently under active development. Significant API changes may occur before the first official release.
 
-## Multi-Platform Support
+---
 
-`feng` provides a Go server/client and is designed to work with game-engine clients:
+## 🎮 Multi-Platform Support
 
-- Cocos: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
-- Unity: [feng-unity](https://github.com/zmhuanf/feng-unity)
+`feng` ships with a Go server/client and is designed to work with mainstream game engines:
 
-## Quick Start
+- **Cocos**: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
+- **Unity**: [feng-unity](https://github.com/zmhuanf/feng-unity)
+
+---
+
+## 🚀 Quick Start
+
+Creating an Echo service with `feng` is straightforward.
 
 ### Server
 
@@ -72,90 +78,86 @@ func main() {
 	}
 }
 ```
+*(Note: error handling is omitted above for brevity)*
 
-## Basic Concepts
+---
 
-### Public API
+## 📖 Basic Concepts
 
-The root package exposes the stable API:
+### 🖥️ Server
 
-- `feng.Server`, created by `feng.NewServer(feng.ServerConfig)`
-- `feng.Client`, created by `feng.NewClient(feng.ClientConfig)`
-- `feng.ServerContext` and `feng.ClientContext`
-- `feng.User` and `feng.Room`
-- `feng.Codec` and `feng.Logger`
+#### Handle（注册处理器）
+Register business logic with the `Handle` method.
 
-Implementation details live under `internal/` and should not be imported by user code.
+*   **Path**: First parameter. Can be any string; not strictly required to start with `/`.
+*   **Handler Function**: Second parameter.
+    *   **Arguments**:
+        1.  `ctx feng.ServerContext` (Required): The server context.
+        2.  `Request Data` (Optional): `string`, `[]byte`, struct, slice, map, bool, or any numeric type deserializable by `Codec`.
+    *   **Return Values**:
+        1.  `error` (Required): The processing result. Returned alone when there is no response body.
+        2.  `Response Data` (Optional): Returned as the first value alongside `error`. Can be `string`, `[]byte`, struct, slice, map, bool, or any numeric type serializable by `Codec`.
 
-### Server
+#### Use（中间件）
+Register middleware with the `Use` method.
 
-Register business handlers with `Handle`:
+*   **Scope**: First parameter is the path prefix. Middleware applies to all handlers matching that prefix, in the order they were added.
+*   **Signature**: First argument must be `feng.ServerContext`; an optional payload argument follows the same rules as handlers. The **return value must be `error` only**.
+*   **Interception**: Returning a non-`nil` error stops the route handler and short-circuits the call.
 
-```go
-server.Handle("/login", func(ctx feng.ServerContext, req LoginReq) (LoginResp, error) {
-	return LoginResp{OK: true}, nil
-})
-```
+#### Server Context（上下文）
+Useful methods on `feng.ServerContext`:
 
-Register middleware with `Use`:
+*   `ctx.Server()` returns the current `feng.Server`.
+*   `ctx.User()` returns the connected `feng.User`.
+*   `ctx.Room()` returns the current `feng.Room`.
+*   `ctx.Get(key)` and `ctx.Set(key, value)` store per-connection data.
+*   `ctx.GinContext()` returns the underlying `*gin.Context`.
 
-```go
-server.Use("/api", func(ctx feng.ServerContext, token string) error {
-	if token == "" {
-		return errors.New("empty token")
-	}
-	ctx.Set("token", token)
-	return nil
-})
-```
+#### Core Types（核心类型）
+The root package exposes the following stable types:
 
-Handler and middleware rules:
+*   `feng.Server` — created by `feng.NewServer(feng.ServerConfig)`.
+*   `feng.ServerConfig` — built from `feng.NewDefaultServerConfig()`; `Codec` and `Logger` are pluggable.
+*   `feng.ServerContext` — passed into handlers and middleware.
+*   `feng.User` / `feng.Room` — connection and room abstractions (`ID`, `JoinRoom`, `LeaveRoom`, `Push`, `Request`, etc.).
+*   `feng.Codec` — serialization interface. Use `feng.NewJSONCodec()` (or `NewJsonCodec`) / `feng.NewProtoCodec()`.
+*   `feng.Logger` — logging interface. Use `feng.NewSlogLogger()`.
 
-- The first argument must be `feng.ServerContext`.
-- The second argument is optional and can be `string`, `[]byte`, struct, slice, map, bool, or number.
-- A handler may return `error` or `(response, error)`.
-- A middleware should return `error`; returning a non-nil error stops the route handler.
+> Implementation details live under `internal/` and should not be imported by user code.
 
-Useful server context methods:
+### 📱 Client
 
-- `ctx.Server()` returns the current `feng.Server`.
-- `ctx.User()` returns the connected `feng.User`.
-- `ctx.Room()` returns the current `feng.Room`.
-- `ctx.Get(key)` and `ctx.Set(key, value)` store per-connection data.
-- `ctx.GinContext()` returns the underlying `*gin.Context`.
+#### Request（请求）
+Send a bidirectional request via the `Request` method.
 
-### Client
+*   **Arguments**:
+    1.  `context.Context` — request context.
+    2.  `Path` — handler path on the peer.
+    3.  `Data` — request payload.
+    4.  `Callback` — invoked after the response arrives, with the same argument shape as a handler and no return value.
 
-Send a bidirectional request with `Request`:
+#### RequestAsync（异步请求）
+Same as `Request` but without a `context.Context`. Use it when the caller does not need to wait for completion directly.
 
-```go
-err := client.Request(context.Background(), "/profile", ProfileReq{ID: "1001"}, func(ctx feng.ClientContext, resp ProfileResp) {
-	fmt.Println(resp.Name)
-})
-```
+#### Push（推送）
+Send a one-way message via the `Push` method.
 
-Send a one-way message with `Push`:
+*   **Arguments**: `Path`, `Data`.
 
-```go
-err := client.Push("/ping", "hello")
-```
+#### Client Handler（客户端处理器）
+Clients can register handlers and middleware for the server to call via `Handle` and `Use`. The usage is identical to the server side, except the first argument must be `feng.ClientContext`.
 
-The client can also receive server-initiated calls:
+#### Core Types（核心类型）
+*   `feng.Client` — created by `feng.NewClient(feng.ClientConfig)`.
+*   `feng.ClientConfig` — built from `feng.NewDefaultClientConfig()`; `Codec`, `Logger`, `EnableTLS`, and `DirectConnect` are configurable.
+*   `feng.ClientContext` — passed into client-side handlers and middleware.
 
-```go
-client.Handle("/notice", func(ctx feng.ClientContext, msg string) error {
-	fmt.Println(msg)
-	return nil
-})
+---
 
-client.Use("/notice", func(ctx feng.ClientContext) error {
-	return nil
-})
-```
+## 💡 Practical Example
 
-Handler and middleware rules are the same as the server side, except the first argument must be `feng.ClientContext`.
-
-## Practical Example
+A more production-shaped example: simple login validation followed by a data fetch.
 
 ```go
 package main
@@ -191,16 +193,18 @@ func main() {
 	}
 }
 
+// Handler: login
 func LoginHandler(ctx feng.ServerContext, req LoginReq) error {
 	if req.Token == "" {
 		return errors.New("empty token")
 	}
 
-	// Store values on the connection context for later handlers.
+	// Stash the user id on the connection context for later handlers.
 	ctx.Set("uuid", "demo-user-id")
 	return nil
 }
 
+// Handler: get account info
 func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
 	uuid, ok := ctx.Get("uuid")
 	if !ok {
@@ -214,22 +218,30 @@ func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
 }
 ```
 
+---
+
 <br/>
 
-# Feng (中文)
+# 🍃 Feng（中文）
 
-`feng` 是一个基于 **Gin** 和 **WebSocket** 的游戏通信框架。它专注于用较小的 API 快速构建游戏服务里的请求/响应和推送通信。
+`feng` 是一个基于 **Gin** 和 **WebSocket** 的游戏通信框架。它不追求极致性能，而是致力于提供一种**简单易用**的通信方案，帮助开发者快速搭建游戏服务器。
 
-> 注意：本项目仍在积极开发中，在第一个稳定版本发布前可能会出现破坏性 API 变更。
+> ⚠️ **注意**：本项目仍在积极开发中，在第一个正式版本发布前，API 可能会出现较大变动。
 
-## 多平台支持
+---
 
-`feng` 提供 Go 服务端/客户端，并面向游戏引擎客户端设计：
+## 🎮 多平台支持
 
-- Cocos: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
-- Unity: [feng-unity](https://github.com/zmhuanf/feng-unity)
+`feng` 自带 Go 服务端/客户端，同时面向主流游戏引擎提供配套 SDK：
 
-## 快速开始
+- **Cocos**: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
+- **Unity**: [feng-unity](https://github.com/zmhuanf/feng-unity)
+
+---
+
+## 🚀 快速开始
+
+用 `feng` 写一个回显（Echo）服务非常简单。
 
 ### 服务端
 
@@ -262,6 +274,8 @@ func main() {
 
 ### 客户端
 
+调用接口同样直观：
+
 ```go
 package main
 
@@ -288,90 +302,86 @@ func main() {
 	}
 }
 ```
+*（注：以上示例为突出重点，省略了部分错误处理）*
 
-## 基本概念
+---
 
-### 公开 API
+## 📖 基本概念
 
-根包只暴露稳定 API：
+### 🖥️ 服务端（Server）
 
-- `feng.Server`，通过 `feng.NewServer(feng.ServerConfig)` 创建
-- `feng.Client`，通过 `feng.NewClient(feng.ClientConfig)` 创建
-- `feng.ServerContext` 和 `feng.ClientContext`
-- `feng.User` 和 `feng.Room`
-- `feng.Codec` 和 `feng.Logger`
+#### Handle（注册处理器）
+通过 `Handle` 方法注册业务逻辑。
 
-具体实现位于 `internal/` 下，业务代码不应直接导入。
+*   **路径（Path）**：第一个参数，可以是任意字符串，不强制要求以 `/` 开头。
+*   **处理器函数**：第二个参数。
+    *   **参数**：
+        1.  `ctx feng.ServerContext`（必须）：服务端上下文。
+        2.  `请求数据`（可选）：支持 `string`、`[]byte`、结构体、切片、map、bool 以及任意数字类型，只要能被 `Codec` 反序列化即可。
+    *   **返回值**：
+        1.  `error`（必须）：表示处理结果。无响应体时只返回它即可。
+        2.  `响应数据`（可选）：与 `error` 一同返回，作为第一个返回值。同样支持 `string`、`[]byte`、结构体、切片、map、bool 和数字类型。
 
-### 服务端
+#### Use（中间件）
+通过 `Use` 方法注册中间件。
 
-使用 `Handle` 注册业务处理器：
+*   **作用范围**：第一个参数是路径前缀。中间件会按注册顺序作用于所有匹配该前缀的处理器。
+*   **函数签名**：第一个参数必须是 `feng.ServerContext`，后续的请求参数与处理器一致。**返回值只能是 `error`**。
+*   **拦截**：返回非 `nil` 的 error 会中断后续处理器的执行，并把错误回传给调用方。
 
-```go
-server.Handle("/login", func(ctx feng.ServerContext, req LoginReq) (LoginResp, error) {
-	return LoginResp{OK: true}, nil
-})
-```
+#### Server Context（上下文）
+`feng.ServerContext` 上常用的方法：
 
-使用 `Use` 注册中间件：
+*   `ctx.Server()` 获取当前 `feng.Server`。
+*   `ctx.User()` 获取当前连接对应的 `feng.User`。
+*   `ctx.Room()` 获取当前连接所在的 `feng.Room`。
+*   `ctx.Get(key)` / `ctx.Set(key, value)` 在连接维度存取数据。
+*   `ctx.GinContext()` 获取底层 `*gin.Context`。
 
-```go
-server.Use("/api", func(ctx feng.ServerContext, token string) error {
-	if token == "" {
-		return errors.New("empty token")
-	}
-	ctx.Set("token", token)
-	return nil
-})
-```
+#### 核心类型
+根包对外暴露的稳定类型如下：
 
-处理器和中间件规则：
+*   `feng.Server`：通过 `feng.NewServer(feng.ServerConfig)` 创建。
+*   `feng.ServerConfig`：使用 `feng.NewDefaultServerConfig()` 构造，`Codec` 和 `Logger` 都可以替换。
+*   `feng.ServerContext`：传给处理器和中间件。
+*   `feng.User` / `feng.Room`：连接与房间抽象，提供 `ID`、`JoinRoom`、`LeaveRoom`、`Push`、`Request` 等方法。
+*   `feng.Codec`：序列化接口。内置 `feng.NewJSONCodec()`（也可用 `NewJsonCodec`）和 `feng.NewProtoCodec()`。
+*   `feng.Logger`：日志接口。内置 `feng.NewSlogLogger()`。
 
-- 第一个参数必须是 `feng.ServerContext`。
-- 第二个参数可选，支持 `string`、`[]byte`、结构体、切片、map、bool、数字。
-- 处理器可以返回 `error` 或 `(response, error)`。
-- 中间件应返回 `error`，返回非 nil error 会阻止路由处理器继续执行。
+> 具体实现位于 `internal/` 目录，业务代码不要直接导入。
 
-常用服务端上下文方法：
+### 📱 客户端（Client）
 
-- `ctx.Server()` 返回当前 `feng.Server`。
-- `ctx.User()` 返回当前连接的 `feng.User`。
-- `ctx.Room()` 返回当前连接的 `feng.Room`。
-- `ctx.Get(key)` 和 `ctx.Set(key, value)` 存取连接级上下文数据。
-- `ctx.GinContext()` 返回底层 `*gin.Context`。
+#### Request（请求）
+通过 `Request` 方法发起双向请求。
 
-### 客户端
+*   **参数**：
+    1.  `context.Context`：请求上下文。
+    2.  `Path`：对端的处理器路径。
+    3.  `Data`：请求数据。
+    4.  `Callback`：收到响应后被调用，参数形态与处理器一致，没有返回值。
 
-使用 `Request` 发送双向请求：
+#### RequestAsync（异步请求）
+与 `Request` 相同，只是不需要传 `context.Context`。当调用方不关心是否同步等待完成时使用。
 
-```go
-err := client.Request(context.Background(), "/profile", ProfileReq{ID: "1001"}, func(ctx feng.ClientContext, resp ProfileResp) {
-	fmt.Println(resp.Name)
-})
-```
+#### Push（推送）
+通过 `Push` 方法发送单向消息。
 
-使用 `Push` 发送单向消息：
+*   **参数**：`Path`、`Data`。
 
-```go
-err := client.Push("/ping", "hello")
-```
+#### 客户端处理器
+客户端也可以通过 `Handle` 和 `Use` 注册供服务端调用的接口和中间件，用法与服务端一致，只是第一个参数必须是 `feng.ClientContext`。
 
-客户端也可以注册供服务端调用的接口：
+#### 核心类型
+*   `feng.Client`：通过 `feng.NewClient(feng.ClientConfig)` 创建。
+*   `feng.ClientConfig`：使用 `feng.NewDefaultClientConfig()` 构造，可配置 `Codec`、`Logger`、`EnableTLS`、`DirectConnect` 等。
+*   `feng.ClientContext`：传给客户端侧的处理器和中间件。
 
-```go
-client.Handle("/notice", func(ctx feng.ClientContext, msg string) error {
-	fmt.Println(msg)
-	return nil
-})
+---
 
-client.Use("/notice", func(ctx feng.ClientContext) error {
-	return nil
-})
-```
+## 💡 实战示例
 
-客户端处理器和中间件规则与服务端一致，只是第一个参数必须是 `feng.ClientContext`。
-
-## 实战示例
+下面是一个更贴近真实业务的小例子：先登录校验，再读取数据。
 
 ```go
 package main
@@ -407,20 +417,22 @@ func main() {
 	}
 }
 
+// Handler：登录
 func LoginHandler(ctx feng.ServerContext, req LoginReq) error {
 	if req.Token == "" {
 		return errors.New("empty token")
 	}
 
-	// 将数据存入连接上下文，后续 handler 可以继续读取。
+	// 把登录后的用户 id 暂存到连接上下文，后续接口可以直接读取。
 	ctx.Set("uuid", "demo-user-id")
 	return nil
 }
 
+// Handler：获取账户信息
 func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
 	uuid, ok := ctx.Get("uuid")
 	if !ok {
-		return AccountResp{}, errors.New("not logged in")
+		return AccountResp{}, errors.New("未登录")
 	}
 
 	return AccountResp{
