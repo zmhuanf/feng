@@ -14,13 +14,14 @@ var Upgrader = websocket.Upgrader{
 }
 
 type Conn struct {
-	conn  *websocket.Conn
-	codec core.Codec
-	lock  sync.Mutex
+	conn        *websocket.Conn
+	codec       core.Codec
+	messageType int
+	lock        sync.Mutex
 }
 
 func NewConn(conn *websocket.Conn, codec core.Codec) *Conn {
-	return &Conn{conn: conn, codec: codec}
+	return &Conn{conn: conn, codec: codec, messageType: codec.MessageType()}
 }
 
 func Dial(url string, codec core.Codec) (*Conn, error) {
@@ -37,7 +38,7 @@ func (c *Conn) Read() (*protocol.Message, error) {
 		if err != nil {
 			return nil, err
 		}
-		if messageType != websocket.TextMessage {
+		if messageType != c.messageType {
 			continue
 		}
 		var msg protocol.Message
@@ -55,7 +56,7 @@ func (c *Conn) Send(msg *protocol.Message) error {
 	}
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	return c.conn.WriteMessage(websocket.TextMessage, data)
+	return c.conn.WriteMessage(c.messageType, data)
 }
 
 func (c *Conn) Close() error {

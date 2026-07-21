@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -14,6 +15,7 @@ var ErrInvalidProtoMessage = errors.New("codec: value does not implement proto.M
 type Codec interface {
 	Marshal(v any) ([]byte, error)
 	Unmarshal(data []byte, v any) error
+	MessageType() int
 }
 
 type jsonCodec struct{}
@@ -42,6 +44,8 @@ func (jsonCodec) Unmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 
+func (jsonCodec) MessageType() int { return websocket.TextMessage }
+
 type protoCodec struct{}
 
 func NewProtoCodec() Codec {
@@ -66,3 +70,5 @@ func (protoCodec) Unmarshal(data []byte, v any) error {
 	}
 	return proto.Unmarshal(data, msg)
 }
+
+func (protoCodec) MessageType() int { return websocket.BinaryMessage }
