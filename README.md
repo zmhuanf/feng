@@ -86,7 +86,7 @@ func main() {
 
 ### 🖥️ Server
 
-#### Handle（注册处理器）
+#### Handle
 Register business logic with the `Handle` method.
 
 *   **Path**: First parameter. Can be any string; not strictly required to start with `/`.
@@ -98,14 +98,14 @@ Register business logic with the `Handle` method.
         1.  `error` (Required): The processing result. Returned alone when there is no response body.
         2.  `Response Data` (Optional): Returned as the first value alongside `error`. Can be `string`, `[]byte`, struct, slice, map, bool, or any numeric type serializable by `Codec`.
 
-#### Use（中间件）
+#### Use
 Register middleware with the `Use` method.
 
 *   **Scope**: First parameter is the path prefix. Middleware applies to all handlers matching that prefix, in the order they were added.
 *   **Signature**: First argument must be `feng.ServerContext`; an optional payload argument follows the same rules as handlers. The **return value must be `error` only**.
 *   **Interception**: Returning a non-`nil` error stops the route handler and short-circuits the call.
 
-#### Server Context（上下文）
+#### Server Context
 Useful methods on `feng.ServerContext`:
 
 *   `ctx.Server()` returns the current `feng.Server`.
@@ -114,7 +114,7 @@ Useful methods on `feng.ServerContext`:
 *   `ctx.Get(key)` and `ctx.Set(key, value)` store per-connection data.
 *   `ctx.GinContext()` returns the underlying `*gin.Context`.
 
-#### Core Types（核心类型）
+#### Core Types
 The root package exposes the following stable types:
 
 *   `feng.Server` — created by `feng.NewServer(feng.ServerConfig)`.
@@ -128,7 +128,7 @@ The root package exposes the following stable types:
 
 ### 📱 Client
 
-#### Request（请求）
+#### Request
 Send a bidirectional request via the `Request` method.
 
 *   **Arguments**:
@@ -137,18 +137,18 @@ Send a bidirectional request via the `Request` method.
     3.  `Data` — request payload.
     4.  `Callback` — invoked after the response arrives, with the same argument shape as a handler and no return value.
 
-#### RequestAsync（异步请求）
+#### RequestAsync
 Same as `Request` but without a `context.Context`. Use it when the caller does not need to wait for completion directly.
 
-#### Push（推送）
+#### Push
 Send a one-way message via the `Push` method.
 
 *   **Arguments**: `Path`, `Data`.
 
-#### Client Handler（客户端处理器）
+#### Client Handler
 Clients can register handlers and middleware for the server to call via `Handle` and `Use`. The usage is identical to the server side, except the first argument must be `feng.ClientContext`.
 
-#### Core Types（核心类型）
+#### Core Types
 *   `feng.Client` — created by `feng.NewClient(feng.ClientConfig)`.
 *   `feng.ClientConfig` — built from `feng.NewDefaultClientConfig()`; `Codec`, `Logger`, `EnableTLS`, and `DirectConnect` are configurable.
 *   `feng.ClientContext` — passed into client-side handlers and middleware.
