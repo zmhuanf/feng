@@ -14,6 +14,7 @@
 
 - **Cocos**: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
 - **Unity**: [feng-unity](https://github.com/zmhuanf/feng-unity)
+- **Godot**: [feng-godot](https://github.com/zmhuanf/feng-godot)
 
 ---
 
@@ -236,6 +237,7 @@ func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
 
 - **Cocos**: [feng-cocos](https://github.com/zmhuanf/feng-cocos)
 - **Unity**: [feng-unity](https://github.com/zmhuanf/feng-unity)
+- **Godot**: [feng-godot](https://github.com/zmhuanf/feng-godot)
 
 ---
 
