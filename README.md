@@ -206,13 +206,13 @@ func LoginHandler(ctx feng.ServerContext, req LoginReq) error {
 }
 
 // Handler: get account info
-func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
+func GetAccountInfoHandler(ctx feng.ServerContext) (*AccountResp, error) {
 	uuid, ok := ctx.Get("uuid")
 	if !ok {
-		return AccountResp{}, errors.New("not logged in")
+		return nil, errors.New("not logged in")
 	}
 
-	return AccountResp{
+	return &AccountResp{
 		Name:     uuid.(string),
 		IsTester: true,
 	}, nil
@@ -431,13 +431,13 @@ func LoginHandler(ctx feng.ServerContext, req LoginReq) error {
 }
 
 // Handler：获取账户信息
-func GetAccountInfoHandler(ctx feng.ServerContext) (AccountResp, error) {
+func GetAccountInfoHandler(ctx feng.ServerContext) (*AccountResp, error) {
 	uuid, ok := ctx.Get("uuid")
 	if !ok {
-		return AccountResp{}, errors.New("未登录")
+		return nil, errors.New("未登录")
 	}
 
-	return AccountResp{
+	return &AccountResp{
 		Name:     uuid.(string),
 		IsTester: true,
 	}, nil
